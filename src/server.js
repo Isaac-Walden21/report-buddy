@@ -24,6 +24,9 @@ app.use('/api/reports', reportRoutes);
 const generateRoutes = require('./routes/generate');
 app.use('/api/generate', generateRoutes);
 
+const legalRoutes = require('./routes/legal');
+app.use('/api/legal', legalRoutes);
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
