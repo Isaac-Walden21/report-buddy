@@ -18,6 +18,9 @@ app.use(express.static(path.join(__dirname, '../public')));
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
+const reportRoutes = require('./routes/reports');
+app.use('/api/reports', reportRoutes);
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
