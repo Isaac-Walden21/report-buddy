@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4a90d9">
+  <title>Report Buddy</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Auth Views -->
+    <div id="auth-view" class="auth-container">
+      <div id="login-form" class="auth-form">
+        <h2>Report Buddy</h2>
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" class="form-input" placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" class="form-input" placeholder="Password">
+        </div>
+        <button id="login-btn" class="btn btn-primary" style="width:100%">Log In</button>
+        <p class="auth-link">Don't have an account? <a href="#" id="show-register">Sign up</a></p>
+      </div>
+
+      <div id="register-form" class="auth-form hidden">
+        <h2>Create Account</h2>
+        <div class="form-group">
+          <label for="register-name">Full Name</label>
+          <input type="text" id="register-name" class="form-input" placeholder="Your name">
+        </div>
+        <div class="form-group">
+          <label for="register-email">Email</label>
+          <input type="email" id="register-email" class="form-input" placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label for="register-password">Password</label>
+          <input type="password" id="register-password" class="form-input" placeholder="Min 8 characters">
+        </div>
+        <button id="register-btn" class="btn btn-primary" style="width:100%">Create Account</button>
+        <p class="auth-link">Already have an account? <a href="#" id="show-login">Log in</a></p>
+      </div>
+    </div>
+
+    <!-- Main App (hidden until logged in) -->
+    <div id="app-view" class="hidden">
+      <header class="header">
+        <h1>Report Buddy</h1>
+        <div>
+          <span id="user-name"></span>
+          <button id="logout-btn" class="btn btn-secondary">Logout</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <!-- Dashboard -->
+        <div id="dashboard-view">
+          <h2 class="mb-2">New Report</h2>
+          <div class="dashboard-grid">
+            <div class="report-type-btn" data-type="incident">
+              <h3>📋 Incident Report</h3>
+              <p>Calls for service, disturbances, general incidents</p>
+            </div>
+            <div class="report-type-btn" data-type="arrest">
+              <h3>🚔 Arrest Report</h3>
+              <p>Arrests, bookings, charges</p>
+            </div>
+            <div class="report-type-btn" data-type="supplemental">
+              <h3>📝 Supplemental</h3>
+              <p>Follow-ups and additional information</p>
+            </div>
+          </div>
+
+          <h2 class="mb-2">Recent Reports</h2>
+          <div id="reports-list" class="reports-list">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Report Input View -->
+        <div id="input-view" class="hidden">
+          <div class="card">
+            <h2 id="input-report-type" class="mb-2">New Report</h2>
+            <div class="text-center mb-2">
+              <button id="voice-btn" class="voice-btn">🎤</button>
+              <p class="mt-1 text-muted" id="voice-status">Tap to start speaking</p>
+            </div>
+            <div class="form-group">
+              <label>Or type your description</label>
+              <textarea id="transcript-input" class="form-input" rows="8" placeholder="Describe what happened..."></textarea>
+            </div>
+            <div id="followup-questions" class="hidden mb-2">
+              <!-- AI follow-up questions appear here -->
+            </div>
+            <div style="display:flex;gap:1rem">
+              <button id="back-btn" class="btn btn-secondary">Back</button>
+              <button id="generate-btn" class="btn btn-primary" style="flex:1">Generate Report</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Report Editor View -->
+        <div id="editor-view" class="hidden">
+          <div class="editor-layout">
+            <!-- Left: Transcript -->
+            <div class="editor-panel">
+              <div class="panel-header">Your Notes</div>
+              <div class="panel-content">
+                <div id="editor-transcript"></div>
+              </div>
+            </div>
+
+            <!-- Center: Report -->
+            <div class="editor-panel">
+              <div class="panel-header">
+                Report Draft
+                <button id="copy-btn" class="btn btn-secondary" style="float:right;padding:0.25rem 0.75rem">Copy</button>
+              </div>
+              <div class="panel-content">
+                <textarea id="editor-content" class="form-input" style="height:100%;resize:none"></textarea>
+              </div>
+              <div style="padding:1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem">
+                <input type="text" id="refine-input" class="form-input" placeholder="Ask AI to make changes..." style="flex:1">
+                <button id="refine-btn" class="btn btn-primary">Refine</button>
+              </div>
+            </div>
+
+            <!-- Right: Legal Assistant -->
+            <div class="editor-panel">
+              <div class="panel-header">
+                Legal Assistant
+                <button id="analyze-btn" class="btn btn-secondary" style="float:right;padding:0.25rem 0.75rem">Analyze</button>
+              </div>
+              <div class="panel-content" id="legal-content">
+                <p class="text-muted">Click Analyze to review your report for legal references and suggestions.</p>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:1rem;display:flex;gap:1rem">
+            <button id="editor-back-btn" class="btn btn-secondary">Back to Dashboard</button>
+            <button id="save-draft-btn" class="btn btn-secondary">Save Draft</button>
+            <button id="mark-complete-btn" class="btn btn-primary">Mark Complete</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/voice.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
