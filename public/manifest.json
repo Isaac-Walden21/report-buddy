@@ -4,8 +4,8 @@
   "description": "AI-powered police report writing assistant",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#4a90d9",
+  "background_color": "#0d0f12",
+  "theme_color": "#d4a53c",
   "icons": [
     {
       "src": "/icons/icon-192.png",

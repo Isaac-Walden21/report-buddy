@@ -2,6 +2,7 @@
 const express = require('express');
 const db = require('../db/database');
 const { authenticateToken } = require('../middleware/auth');
+const { suggestCharges, checkElements, getUserPoliciesAndCaseLaw } = require('../services/ai');
 
 const router = express.Router();
 
@@ -142,6 +143,68 @@ router.delete('/:id', (req, res) => {
   } catch (error) {
     console.error('Delete report error:', error);
     res.status(500).json({ error: 'Failed to delete report' });
+  }
+});
+
+// Suggest charges based on report content
+router.post('/:id/suggest-charges', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const reportId = req.params.id;
+
+    const report = db.prepare(
+      'SELECT * FROM reports WHERE id = ? AND user_id = ?'
+    ).get(reportId, userId);
+
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    const content = report.final_content || report.generated_content;
+    if (!content) {
+      return res.status(400).json({ error: 'No report content to analyze' });
+    }
+
+    const result = await suggestCharges(content);
+    res.json(result);
+  } catch (error) {
+    console.error('Suggest charges error:', error);
+    res.status(500).json({ error: 'Failed to suggest charges' });
+  }
+});
+
+// Check if report meets elements of specified charges
+router.post('/:id/check-elements', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const reportId = req.params.id;
+    const { charges } = req.body;
+
+    if (!charges || !Array.isArray(charges) || charges.length === 0) {
+      return res.status(400).json({ error: 'charges array required' });
+    }
+
+    const report = db.prepare(
+      'SELECT * FROM reports WHERE id = ? AND user_id = ?'
+    ).get(reportId, userId);
+
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    const content = report.final_content || report.generated_content;
+    if (!content) {
+      return res.status(400).json({ error: 'No report content to analyze' });
+    }
+
+    // Get user's policies and case law for context
+    const legalData = getUserPoliciesAndCaseLaw(userId);
+
+    const result = await checkElements(content, charges, legalData);
+    res.json(result);
+  } catch (error) {
+    console.error('Check elements error:', error);
+    res.status(500).json({ error: 'Failed to check elements' });
   }
 });
 

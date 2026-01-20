@@ -2,7 +2,7 @@
 const express = require('express');
 const db = require('../db/database');
 const { authenticateToken } = require('../middleware/auth');
-const { generateReport, generateFollowUpQuestions, refineReport } = require('../services/ai');
+const { generateReport, generateFollowUpQuestions, refineReport, generateTitle } = require('../services/ai');
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -43,17 +43,21 @@ router.post('/report', async (req, res) => {
       return res.status(404).json({ error: 'Report not found' });
     }
 
-    // Generate report
-    const generatedContent = await generateReport(userId, report.report_type, transcript);
+    // Generate report and title in parallel
+    const [generatedContent, suggestedTitle] = await Promise.all([
+      generateReport(userId, report.report_type, transcript),
+      generateTitle(report.report_type, transcript)
+    ]);
 
-    // Update report
+    // Update report with content and title
     db.prepare(
-      'UPDATE reports SET transcript = ?, generated_content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-    ).run(transcript, generatedContent, report_id);
+      'UPDATE reports SET transcript = ?, generated_content = ?, title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).run(transcript, generatedContent, suggestedTitle, report_id);
 
     res.json({
       report_id,
-      generated_content: generatedContent
+      generated_content: generatedContent,
+      suggested_title: suggestedTitle
     });
   } catch (error) {
     console.error('Generate report error:', error);

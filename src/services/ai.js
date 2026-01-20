@@ -19,9 +19,22 @@ function getStyleProfile(userId, reportType) {
   return { profile, examples };
 }
 
+// Get user's policies and case law
+function getUserPoliciesAndCaseLaw(userId) {
+  const docs = db.prepare(
+    'SELECT filename, content FROM policy_documents WHERE user_id = ?'
+  ).all(userId);
+
+  const policies = docs.filter(d => !d.filename.startsWith('[CASELAW]'));
+  const caseLaw = docs.filter(d => d.filename.startsWith('[CASELAW]'));
+
+  return { policies, caseLaw };
+}
+
 // Build system prompt based on user's style
-function buildSystemPrompt(styleData, reportType) {
+function buildSystemPrompt(styleData, reportType, legalData) {
   const { profile, examples } = styleData;
+  const { policies, caseLaw } = legalData || { policies: [], caseLaw: [] };
 
   let prompt = `You are an expert police report writing assistant. You help officers write clear, professional ${reportType} reports.
 
@@ -46,15 +59,44 @@ REPORT STYLE GUIDELINES:
     });
   }
 
+  if (policies.length > 0) {
+    prompt += `\nDEPARTMENT POLICIES TO REFERENCE:\n`;
+    policies.forEach(p => {
+      prompt += `\n--- ${p.filename} ---\n${p.content}\n`;
+    });
+    prompt += `\nWhen writing the report, ensure actions align with these policies. You may briefly note policy compliance where relevant.\n`;
+  }
+
+  if (caseLaw.length > 0) {
+    prompt += `\nRELEVANT CASE LAW:\n`;
+    caseLaw.forEach(c => {
+      prompt += `\n--- ${c.filename.replace('[CASELAW] ', '')} ---\n${c.content}\n`;
+    });
+    prompt += `\nWhen actions involve legal justifications (searches, stops, use of force), you may reference applicable case law.\n`;
+  }
+
   prompt += `
+YOUR ROLE: You are a senior, well-versed Indiana police officer with extensive knowledge of:
+- Indiana Code (IC) statutes and charges
+- Indiana case law and legal precedents
+- Department policies and procedures
+- Proper report writing for court admissibility
+
 FORMATTING RULES:
-- Write in clear, factual prose
+- Write in clear, factual prose - NO markdown, NO asterisks, NO special formatting
 - Use precise times, dates, and locations
 - Include relevant details but avoid unnecessary information
 - Organize chronologically unless another structure makes more sense
 - Use professional law enforcement terminology appropriately
+- Plain text only - this will be copied into an RMS system
 
-OUTPUT: Generate a complete, properly formatted ${reportType} report based on the officer's description.`;
+LEGAL CITATIONS:
+- When describing criminal activity, cite the applicable Indiana Code (e.g., "IC 35-42-2-1 Battery")
+- Include the offense level when known (e.g., "Level 6 Felony", "Class A Misdemeanor")
+- Reference relevant case law when actions require legal justification (stops, searches, use of force)
+- Ensure probable cause is clearly articulated with supporting IC references
+
+OUTPUT: Generate a complete, professionally formatted ${reportType} report. Write in plain text suitable for direct copy into a police RMS. Cite applicable Indiana Code sections for all charges and criminal conduct described.`;
 
   return prompt;
 }
@@ -62,7 +104,8 @@ OUTPUT: Generate a complete, properly formatted ${reportType} report based on th
 // Generate report from transcript
 async function generateReport(userId, reportType, transcript) {
   const styleData = getStyleProfile(userId, reportType);
-  const systemPrompt = buildSystemPrompt(styleData, reportType);
+  const legalData = getUserPoliciesAndCaseLaw(userId);
+  const systemPrompt = buildSystemPrompt(styleData, reportType, legalData);
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
@@ -84,17 +127,26 @@ async function generateFollowUpQuestions(reportType, transcript) {
     messages: [
       {
         role: 'system',
-        content: `You are helping a police officer write a ${reportType} report. Review their description and identify any missing critical information.
+        content: `You are an experienced police sergeant reviewing an officer's verbal description before they write a ${reportType} report.
 
-For ${reportType} reports, essential elements typically include:
-${reportType === 'arrest' ? '- Suspect identification (name, DOB, physical description)\n- Charges\n- Miranda warning given\n- Probable cause\n- Evidence collected\n- Booking information' : ''}
-${reportType === 'incident' ? '- Date, time, location\n- Parties involved (victims, witnesses, subjects)\n- What happened (chronological)\n- Evidence or observations\n- Actions taken\n- Disposition' : ''}
-${reportType === 'supplemental' ? '- Reference to original report/case number\n- New information or follow-up actions\n- Results of investigation\n- Updated status' : ''}
+BE LENIENT. Officers know their job. Only ask about CRITICAL missing information that would make the report incomplete or embarrassing to submit.
 
-If the description is complete enough to write a report, respond with: {"ready": true}
-If information is missing, respond with: {"ready": false, "questions": ["question1", "question2"]}
+DO NOT ask about:
+- Minor details the officer can fill in (exact times, badge numbers, etc.)
+- Standard procedures they obviously followed
+- Things that can be inferred from context
+- Formatting or structure concerns
 
-Keep questions concise and specific. Maximum 3 questions.`
+ONLY ask if something major is genuinely unclear or missing, like:
+${reportType === 'arrest' ? '- Who was arrested (if not mentioned at all)\n- What they were arrested for (if no charges mentioned)\n- Basic probable cause (if completely absent)' : ''}
+${reportType === 'incident' ? '- What actually happened (if the narrative is too vague to understand)\n- General location (if completely missing)\n- How it was resolved (if unclear)' : ''}
+${reportType === 'supplemental' ? '- What case this relates to (if unclear)\n- What new information is being added (if missing)' : ''}
+
+Respond in JSON format.
+If you can write a reasonable report from this description, respond: {"ready": true}
+Only if something CRITICAL is missing, respond: {"ready": false, "questions": ["specific question"]}
+
+Err on the side of "ready": true. Maximum 2 questions, only if truly necessary.`
       },
       { role: 'user', content: transcript }
     ],
@@ -113,7 +165,15 @@ async function refineReport(currentReport, refinementRequest) {
     messages: [
       {
         role: 'system',
-        content: 'You are editing a police report based on the officer\'s feedback. Make the requested changes while maintaining professional formatting and consistency. Return only the updated report.'
+        content: `You are a senior Indiana police officer editing a report based on feedback.
+
+Make the requested changes while:
+- Maintaining professional formatting and consistency
+- Using plain text only (NO asterisks, NO markdown, NO special formatting)
+- Citing applicable Indiana Code (IC) sections for any charges
+- Ensuring legal justifications are properly documented
+
+Return only the updated report in plain text.`
       },
       { role: 'user', content: `Current report:\n\n${currentReport}\n\nRequested changes: ${refinementRequest}` }
     ],
@@ -124,8 +184,167 @@ async function refineReport(currentReport, refinementRequest) {
   return response.choices[0].message.content;
 }
 
+// Generate a concise title for the report
+async function generateTitle(reportType, transcript) {
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: `You generate concise titles for police reports.
+
+FORMAT: [Incident Type] - [Key Detail] - [Date if mentioned]
+
+RULES:
+- Maximum 50 characters
+- Include location OR primary party name (whichever is more identifying)
+- Use standard abbreviations: DV (domestic violence), TC (traffic collision), etc.
+- No special characters or formatting
+- If no date mentioned, omit that part
+
+EXAMPLES:
+- "DV Assault - 123 Oak St"
+- "Traffic Stop / DUI - Smith, John"
+- "Burglary Report - First National Bank"
+- "Theft - Walmart #4521 - 01/20/26"
+
+Respond with ONLY the title, nothing else.`
+      },
+      { role: 'user', content: `Report type: ${reportType}\n\nTranscript:\n${transcript}` }
+    ],
+    temperature: 0.2,
+    max_tokens: 60
+  });
+
+  return response.choices[0].message.content.trim();
+}
+
+// Suggest likely charges based on the report narrative
+async function suggestCharges(reportContent) {
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: `You are an experienced Indiana police officer. Based on the report narrative, suggest the most likely criminal charges.
+
+Return JSON with this format:
+{
+  "charges": [
+    {
+      "charge": "Domestic Battery",
+      "statute": "IC 35-42-2-1.3",
+      "level": "Class A Misdemeanor",
+      "confidence": "high"
+    }
+  ]
+}
+
+RULES:
+- Only suggest charges clearly supported by the narrative
+- Maximum 3 charges
+- Include Indiana Code citation
+- Confidence: "high" (elements clearly present), "medium" (likely but needs verification)
+- If this appears to be a non-criminal incident report, return {"charges": []}
+
+Focus on the primary charges, not lesser includeds.`
+      },
+      { role: 'user', content: reportContent }
+    ],
+    temperature: 0.2,
+    max_tokens: 500,
+    response_format: { type: 'json_object' }
+  });
+
+  return JSON.parse(response.choices[0].message.content);
+}
+
+// Check if report meets the elements of specified charges
+async function checkElements(reportContent, charges, legalData) {
+  const { policies, caseLaw } = legalData || { policies: [], caseLaw: [] };
+
+  let contextPrompt = '';
+  if (policies.length > 0) {
+    contextPrompt += '\nDEPARTMENT POLICIES:\n';
+    policies.forEach(p => {
+      contextPrompt += `--- ${p.filename} ---\n${p.content}\n\n`;
+    });
+  }
+  if (caseLaw.length > 0) {
+    contextPrompt += '\nCASE LAW REFERENCES:\n';
+    caseLaw.forEach(c => {
+      contextPrompt += `--- ${c.filename.replace('[CASELAW] ', '')} ---\n${c.content}\n\n`;
+    });
+  }
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: `You are an experienced Indiana police sergeant and legal advisor reviewing a report for court readiness.
+
+For each charge provided, analyze whether the report narrative establishes the required statutory elements.
+${contextPrompt}
+Return JSON with this format:
+{
+  "analysis": [
+    {
+      "charge": "Domestic Battery - IC 35-42-2-1.3",
+      "elements": [
+        {
+          "element": "Domestic or family relationship",
+          "status": "met",
+          "evidence": "Quote or paraphrase from report proving this element",
+          "suggestion": null
+        },
+        {
+          "element": "Knowing or intentional touching",
+          "status": "weak",
+          "evidence": "Partial evidence found",
+          "suggestion": "Consider adding: witness statement about seeing the strike, or suspect admission"
+        },
+        {
+          "element": "Rude, insolent, or angry manner",
+          "status": "missing",
+          "evidence": null,
+          "suggestion": "Document victim's description of how the contact occurred, any statements from suspect showing intent"
+        }
+      ],
+      "overall": "needs_work",
+      "summary": "2 of 3 elements established. Add documentation of the manner of touching."
+    }
+  ]
+}
+
+STATUS VALUES:
+- "met": Element clearly established with specific evidence
+- "weak": Some evidence but could be challenged, needs strengthening
+- "missing": Not documented in the report
+
+OVERALL VALUES:
+- "ready": All elements met
+- "needs_work": Some elements weak or missing
+- "insufficient": Major elements missing
+
+Be specific about what evidence supports each element and what could strengthen weak areas.`
+      },
+      { role: 'user', content: `CHARGES TO VERIFY:\n${charges.join('\n')}\n\nREPORT CONTENT:\n${reportContent}` }
+    ],
+    temperature: 0.2,
+    max_tokens: 2000,
+    response_format: { type: 'json_object' }
+  });
+
+  return JSON.parse(response.choices[0].message.content);
+}
+
 module.exports = {
   generateReport,
   generateFollowUpQuestions,
-  refineReport
+  refineReport,
+  generateTitle,
+  suggestCharges,
+  checkElements,
+  getUserPoliciesAndCaseLaw
 };

@@ -117,5 +117,59 @@ const API = {
     return this.request(`/legal/analyze/${reportId}`, {
       method: 'POST'
     });
+  },
+
+  async suggestCharges(reportId) {
+    return this.request(`/reports/${reportId}/suggest-charges`, {
+      method: 'POST'
+    });
+  },
+
+  async checkElements(reportId, charges) {
+    return this.request(`/reports/${reportId}/check-elements`, {
+      method: 'POST',
+      body: JSON.stringify({ charges })
+    });
+  },
+
+  // Policies (department policies and case law)
+  async uploadPolicy(filename, content) {
+    return this.request('/legal/policy', {
+      method: 'POST',
+      body: JSON.stringify({ filename, content })
+    });
+  },
+
+  async getPolicies() {
+    return this.request('/legal/policies');
+  },
+
+  async deletePolicy(id) {
+    return this.request(`/legal/policy/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Profile and examples
+  async getProfile() {
+    return this.request('/profile');
+  },
+
+  async uploadExample(reportType, content) {
+    return this.request('/profile/examples', {
+      method: 'POST',
+      body: JSON.stringify({ report_type: reportType, content })
+    });
+  },
+
+  async getExamples(reportType) {
+    const query = reportType ? `?report_type=${reportType}` : '';
+    return this.request(`/profile/examples${query}`);
+  },
+
+  async deleteExample(id) {
+    return this.request(`/profile/examples/${id}`, {
+      method: 'DELETE'
+    });
   }
 };

@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#4a90d9">
+  <meta name="theme-color" content="#d4a53c">
+  <meta name="description" content="AI-powered police report writing assistant">
   <title>Report Buddy</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/css/styles.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23d4a53c' width='100' height='100' rx='12'/%3E%3Cpath fill='%230d0f12' d='M25 20h50v8H25zM25 36h50v4H25zM25 48h50v4H25zM25 60h35v4H25zM25 72h45v4H25z'/%3E%3C/svg%3E">
 </head>
 <body>
   <div class="app">
@@ -16,11 +18,11 @@
         <h2>Report Buddy</h2>
         <div class="form-group">
           <label for="login-email">Email</label>
-          <input type="email" id="login-email" class="form-input" placeholder="your@email.com">
+          <input type="email" id="login-email" class="form-input" placeholder="your@email.com" autocomplete="email">
         </div>
         <div class="form-group">
           <label for="login-password">Password</label>
-          <input type="password" id="login-password" class="form-input" placeholder="Password">
+          <input type="password" id="login-password" class="form-input" placeholder="Password" autocomplete="current-password">
         </div>
         <button id="login-btn" class="btn btn-primary" style="width:100%">Log In</button>
         <p class="auth-link">Don't have an account? <a href="#" id="show-register">Sign up</a></p>
@@ -30,15 +32,15 @@
         <h2>Create Account</h2>
         <div class="form-group">
           <label for="register-name">Full Name</label>
-          <input type="text" id="register-name" class="form-input" placeholder="Your name">
+          <input type="text" id="register-name" class="form-input" placeholder="Your name" autocomplete="name">
         </div>
         <div class="form-group">
           <label for="register-email">Email</label>
-          <input type="email" id="register-email" class="form-input" placeholder="your@email.com">
+          <input type="email" id="register-email" class="form-input" placeholder="your@email.com" autocomplete="email">
         </div>
         <div class="form-group">
           <label for="register-password">Password</label>
-          <input type="password" id="register-password" class="form-input" placeholder="Min 8 characters">
+          <input type="password" id="register-password" class="form-input" placeholder="Min 8 characters" autocomplete="new-password">
         </div>
         <button id="register-btn" class="btn btn-primary" style="width:100%">Create Account</button>
         <p class="auth-link">Already have an account? <a href="#" id="show-login">Log in</a></p>
@@ -51,6 +53,7 @@
         <h1>Report Buddy</h1>
         <div>
           <span id="user-name"></span>
+          <button id="settings-btn" class="btn btn-secondary">Settings</button>
           <button id="logout-btn" class="btn btn-secondary">Logout</button>
         </div>
       </header>
@@ -58,23 +61,23 @@
       <main class="main">
         <!-- Dashboard -->
         <div id="dashboard-view">
-          <h2 class="mb-2">New Report</h2>
+          <h2>New Report</h2>
           <div class="dashboard-grid">
             <div class="report-type-btn" data-type="incident">
-              <h3>📋 Incident Report</h3>
+              <h3>Incident Report</h3>
               <p>Calls for service, disturbances, general incidents</p>
             </div>
             <div class="report-type-btn" data-type="arrest">
-              <h3>🚔 Arrest Report</h3>
+              <h3>Arrest Report</h3>
               <p>Arrests, bookings, charges</p>
             </div>
             <div class="report-type-btn" data-type="supplemental">
-              <h3>📝 Supplemental</h3>
+              <h3>Supplemental</h3>
               <p>Follow-ups and additional information</p>
             </div>
           </div>
 
-          <h2 class="mb-2">Recent Reports</h2>
+          <h2>Recent Reports</h2>
           <div id="reports-list" class="reports-list">
             <!-- Populated by JS -->
           </div>
@@ -85,8 +88,15 @@
           <div class="card">
             <h2 id="input-report-type" class="mb-2">New Report</h2>
             <div class="text-center mb-2">
-              <button id="voice-btn" class="voice-btn">🎤</button>
-              <p class="mt-1 text-muted" id="voice-status">Tap to start speaking</p>
+              <button id="voice-btn" class="voice-btn">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="23"/>
+                  <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+              </button>
+              <p class="mt-1" id="voice-status">Tap to start speaking</p>
             </div>
             <div class="form-group">
               <label>Or type your description</label>
@@ -116,11 +126,19 @@
             <!-- Center: Report -->
             <div class="editor-panel">
               <div class="panel-header">
-                Report Draft
-                <button id="copy-btn" class="btn btn-secondary" style="float:right;padding:0.25rem 0.75rem">Copy</button>
+                <div class="title-edit-container">
+                  <input type="text" id="report-title" class="title-input" placeholder="Report title...">
+                </div>
+                <button id="copy-btn" class="btn btn-secondary">Copy</button>
+              </div>
+              <div class="format-toolbar">
+                <button type="button" class="format-btn" data-command="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+                <button type="button" class="format-btn" data-command="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+                <button type="button" class="format-btn" data-command="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+                <button type="button" class="format-btn highlight-btn" data-command="highlight" title="Highlight">H</button>
               </div>
               <div class="panel-content">
-                <textarea id="editor-content" class="form-input" style="height:100%;resize:none"></textarea>
+                <div id="editor-content" class="rich-editor" contenteditable="true"></div>
               </div>
               <div style="padding:1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem">
                 <input type="text" id="refine-input" class="form-input" placeholder="Ask AI to make changes..." style="flex:1">
@@ -132,10 +150,17 @@
             <div class="editor-panel">
               <div class="panel-header">
                 Legal Assistant
-                <button id="analyze-btn" class="btn btn-secondary" style="float:right;padding:0.25rem 0.75rem">Analyze</button>
+                <button id="analyze-btn" class="btn btn-secondary">Analyze</button>
               </div>
               <div class="panel-content" id="legal-content">
-                <p class="text-muted">Click Analyze to review your report for legal references and suggestions.</p>
+                <p class="text-muted">Click Analyze to suggest charges and verify elements.</p>
+              </div>
+              <div id="charges-section" class="charges-section hidden">
+                <div class="charges-header">Suggested Charges</div>
+                <div id="charges-list" class="charges-list">
+                  <!-- Populated by JS -->
+                </div>
+                <button id="check-elements-btn" class="btn btn-primary" style="width:100%;margin-top:0.5rem">Check Elements</button>
               </div>
             </div>
           </div>
@@ -143,6 +168,83 @@
             <button id="editor-back-btn" class="btn btn-secondary">Back to Dashboard</button>
             <button id="save-draft-btn" class="btn btn-secondary">Save Draft</button>
             <button id="mark-complete-btn" class="btn btn-primary">Mark Complete</button>
+          </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="settings-view" class="hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+            <h2>Settings</h2>
+            <button id="settings-back-btn" class="btn btn-secondary">Back to Dashboard</button>
+          </div>
+
+          <div class="settings-grid">
+            <!-- Department Policies -->
+            <div class="card">
+              <h3 class="mb-2">Department Policies</h3>
+              <p class="text-muted mb-2">Upload your department's policy manual. The AI will reference these when analyzing your reports.</p>
+
+              <div class="form-group">
+                <label>Document Name</label>
+                <input type="text" id="policy-name" class="form-input" placeholder="e.g., Use of Force Policy">
+              </div>
+              <div class="form-group">
+                <label>Policy Content</label>
+                <textarea id="policy-content" class="form-input" rows="4" placeholder="Paste policy text here..."></textarea>
+              </div>
+              <button id="upload-policy-btn" class="btn btn-primary" style="width:100%">Upload Policy</button>
+
+              <h4 class="mt-2 mb-1">Uploaded Policies</h4>
+              <div id="policies-list" class="settings-list">
+                <p class="text-muted">No policies uploaded yet.</p>
+              </div>
+            </div>
+
+            <!-- Case Law -->
+            <div class="card">
+              <h3 class="mb-2">Case Law References</h3>
+              <p class="text-muted mb-2">Add relevant case law. The AI will cite these when validating your actions.</p>
+
+              <div class="form-group">
+                <label>Case Name & Citation</label>
+                <input type="text" id="caselaw-name" class="form-input" placeholder="e.g., Terry v. Ohio (1968)">
+              </div>
+              <div class="form-group">
+                <label>Key Holdings / Summary</label>
+                <textarea id="caselaw-content" class="form-input" rows="4" placeholder="Summarize the relevant holdings..."></textarea>
+              </div>
+              <button id="upload-caselaw-btn" class="btn btn-primary" style="width:100%">Add Case Law</button>
+
+              <h4 class="mt-2 mb-1">Saved Case Law</h4>
+              <div id="caselaw-list" class="settings-list">
+                <p class="text-muted">No case law added yet.</p>
+              </div>
+            </div>
+
+            <!-- Example Reports -->
+            <div class="card">
+              <h3 class="mb-2">Example Reports (Style Training)</h3>
+              <p class="text-muted mb-2">Upload your own reports so the AI learns your writing style. Max 5 per report type.</p>
+
+              <div class="form-group">
+                <label>Report Type</label>
+                <select id="example-type" class="form-input">
+                  <option value="incident">Incident Report</option>
+                  <option value="arrest">Arrest Report</option>
+                  <option value="supplemental">Supplemental Report</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Report Content</label>
+                <textarea id="example-content" class="form-input" rows="4" placeholder="Paste a completed report here..."></textarea>
+              </div>
+              <button id="upload-example-btn" class="btn btn-primary" style="width:100%">Upload Example</button>
+
+              <h4 class="mt-2 mb-1">Uploaded Examples</h4>
+              <div id="examples-list" class="settings-list">
+                <p class="text-muted">No examples uploaded yet.</p>
+              </div>
+            </div>
           </div>
         </div>
       </main>
