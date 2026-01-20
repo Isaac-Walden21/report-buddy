@@ -69,6 +69,12 @@ router.put('/style/:reportType', (req, res) => {
   try {
     const userId = req.user.userId;
     const reportType = req.params.reportType;
+
+    const validTypes = ['incident', 'arrest', 'supplemental'];
+    if (!validTypes.includes(reportType)) {
+      return res.status(400).json({ error: 'Invalid report type. Must be incident, arrest, or supplemental' });
+    }
+
     const { voice, detail_level, common_phrases, vocabulary_preferences } = req.body;
 
     const updates = [];
@@ -79,13 +85,15 @@ router.put('/style/:reportType', (req, res) => {
     if (common_phrases) { updates.push('common_phrases = ?'); params.push(JSON.stringify(common_phrases)); }
     if (vocabulary_preferences) { updates.push('vocabulary_preferences = ?'); params.push(JSON.stringify(vocabulary_preferences)); }
 
-    if (updates.length > 0) {
-      updates.push('updated_at = CURRENT_TIMESTAMP');
-      params.push(userId, reportType);
-      db.prepare(
-        `UPDATE style_profiles SET ${updates.join(', ')} WHERE user_id = ? AND report_type = ?`
-      ).run(...params);
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update. Valid fields: voice, detail_level, common_phrases, vocabulary_preferences' });
     }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(userId, reportType);
+    db.prepare(
+      `UPDATE style_profiles SET ${updates.join(', ')} WHERE user_id = ? AND report_type = ?`
+    ).run(...params);
 
     const profile = db.prepare(
       'SELECT * FROM style_profiles WHERE user_id = ? AND report_type = ?'
@@ -106,6 +114,11 @@ router.post('/examples', (req, res) => {
 
     if (!report_type || !content) {
       return res.status(400).json({ error: 'report_type and content required' });
+    }
+
+    const validTypes = ['incident', 'arrest', 'supplemental'];
+    if (!validTypes.includes(report_type)) {
+      return res.status(400).json({ error: 'Invalid report_type. Must be incident, arrest, or supplemental' });
     }
 
     // Limit to 5 examples per type
