@@ -325,6 +325,17 @@ select.form-input {
 /* ============================================
    VOICE BUTTON
    ============================================ */
+.voice-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+}
+
+.clear-btn {
+  padding: 0.5rem 1rem;
+}
+
 .voice-btn {
   width: 100px;
   height: 100px;

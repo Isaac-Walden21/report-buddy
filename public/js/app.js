@@ -35,6 +35,10 @@ const App = {
       }
     };
 
+    Voice.onClear = () => {
+      document.getElementById('transcript-input').value = '';
+    };
+
     // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');
@@ -76,7 +80,14 @@ const App = {
     });
 
     // Input view events
-    document.getElementById('voice-btn').onclick = () => Voice.toggle();
+    document.getElementById('voice-btn').onclick = () => {
+      const existingText = document.getElementById('transcript-input').value.trim();
+      Voice.toggle(existingText);
+    };
+    document.getElementById('clear-transcript-btn').onclick = () => {
+      Voice.clear();
+      document.getElementById('transcript-input').value = '';
+    };
     document.getElementById('back-btn').onclick = () => this.showView('dashboard');
     document.getElementById('generate-btn').onclick = () => this.generateReport();
 

@@ -58,7 +58,7 @@ const Voice = {
     return true;
   },
 
-  start() {
+  start(existingText = '') {
     if (!this.recognition) {
       if (!this.init()) {
         alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
@@ -66,7 +66,8 @@ const Voice = {
       }
     }
 
-    this.transcript = '';
+    // Continue from existing text instead of clearing
+    this.transcript = existingText ? existingText + ' ' : '';
     this.isRecording = true;
     this.recognition.start();
 
@@ -88,11 +89,18 @@ const Voice = {
     return this.transcript;
   },
 
-  toggle() {
+  clear() {
+    this.transcript = '';
+    if (this.onClear) {
+      this.onClear();
+    }
+  },
+
+  toggle(existingText = '') {
     if (this.isRecording) {
       return this.stop();
     } else {
-      this.start();
+      this.start(existingText);
       return '';
     }
   }
