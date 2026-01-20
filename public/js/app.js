@@ -87,6 +87,7 @@ const App = {
     };
     document.getElementById('copy-btn').onclick = () => this.copyReport();
     document.getElementById('refine-btn').onclick = () => this.refineReport();
+    document.getElementById('caselaw-btn').onclick = () => this.analyzeCaseLaw();
     document.getElementById('analyze-btn').onclick = () => this.suggestChargesForReport();
     document.getElementById('check-elements-btn').onclick = () => this.checkElementsForReport();
     document.getElementById('save-draft-btn').onclick = () => this.saveReport('draft');
@@ -297,7 +298,7 @@ const App = {
     // Set title
     document.getElementById('report-title').value = report.title || '';
     // Reset legal panel
-    document.getElementById('legal-content').innerHTML = '<p class="text-muted">Click Analyze to suggest charges and verify elements.</p>';
+    document.getElementById('legal-content').innerHTML = '<p class="text-muted"><strong>Case Law</strong> - Get case citations and policy recommendations<br><strong>Elements</strong> - Verify your report meets statutory elements</p>';
     document.getElementById('charges-section').classList.add('hidden');
     this.suggestedCharges = [];
     this.showView('editor');
@@ -472,6 +473,77 @@ const App = {
       html += `<div class="analysis-summary ${chargeAnalysis.overall}">${chargeAnalysis.summary}</div>`;
       html += `</div>`;
     });
+
+    container.innerHTML = html;
+  },
+
+  async analyzeCaseLaw() {
+    const btn = document.getElementById('caselaw-btn');
+    btn.disabled = true;
+    btn.textContent = 'Analyzing...';
+
+    try {
+      // First save current content
+      const content = this.getEditorContent();
+      await API.updateReport(this.currentReport.id, { generated_content: content });
+
+      // Hide charges section for this view
+      document.getElementById('charges-section').classList.add('hidden');
+
+      // Then analyze for case law
+      const analysis = await API.analyzeReport(this.currentReport.id);
+      this.showLegalAnalysis(analysis);
+    } catch (error) {
+      alert('Failed to analyze report: ' + error.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Case Law';
+    }
+  },
+
+  showLegalAnalysis(analysis) {
+    const container = document.getElementById('legal-content');
+    let html = '';
+
+    if (analysis.validations?.length > 0) {
+      html += '<h4>Actions Validated</h4>';
+      analysis.validations.forEach(v => {
+        html += `
+          <div class="legal-item">
+            <div class="legal-item-title">${v.action}</div>
+            <div class="legal-item-content">${v.case_law || ''} ${v.policy ? '• ' + v.policy : ''}</div>
+          </div>
+        `;
+      });
+    }
+
+    if (analysis.clarifications?.length > 0) {
+      html += '<h4 style="margin-top:1rem">Clarification Recommended</h4>';
+      analysis.clarifications.forEach(c => {
+        html += `
+          <div class="legal-item clarification">
+            <div class="legal-item-title">${c.issue}</div>
+            <div class="legal-item-content">${c.suggestion}</div>
+          </div>
+        `;
+      });
+    }
+
+    if (analysis.relevant_references?.length > 0) {
+      html += '<h4 style="margin-top:1rem">Relevant Case Law</h4>';
+      analysis.relevant_references.forEach(r => {
+        html += `
+          <div class="legal-item reference">
+            <div class="legal-item-title">${r.title}</div>
+            <div class="legal-item-content">${r.citation}<br>${r.relevance}</div>
+          </div>
+        `;
+      });
+    }
+
+    if (!html) {
+      html = '<p class="text-muted">No specific legal references identified.</p>';
+    }
 
     container.innerHTML = html;
   },

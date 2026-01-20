@@ -591,6 +591,11 @@ select.form-input {
   font-size: 0.65rem;
 }
 
+.panel-header-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
 /* Title Input in Header */
 .title-edit-container {
   flex: 1;
