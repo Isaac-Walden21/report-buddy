@@ -330,6 +330,7 @@ select.form-input {
   align-items: center;
   justify-content: center;
   gap: var(--space-lg);
+  margin-bottom: var(--space-md);
 }
 
 .clear-btn {
