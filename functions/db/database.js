@@ -3,7 +3,10 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 
-const dbPath = path.join(__dirname, '../../data/report-buddy.db');
+// Use /tmp for Cloud Functions (ephemeral storage)
+const dbPath = process.env.FUNCTIONS_EMULATOR
+  ? path.join(__dirname, '../../data/report-buddy.db')
+  : '/tmp/report-buddy.db';
 const schemaPath = path.join(__dirname, 'schema.sql');
 
 // Ensure data directory exists

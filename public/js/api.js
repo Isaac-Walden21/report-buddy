@@ -1,15 +1,38 @@
 // public/js/api.js
+
+// Firebase will be loaded via script tags in HTML
+// This file initializes after Firebase is ready
+
 const API = {
   baseUrl: '/api',
-  token: localStorage.getItem('token'),
+  currentUser: null,
+  auth: null,
 
-  setToken(token) {
-    this.token = token;
-    if (token) {
-      localStorage.setItem('token', token);
-    } else {
-      localStorage.removeItem('token');
+  // Initialize Firebase Auth
+  init() {
+    const firebaseConfig = {
+      apiKey: "AIzaSyC5FNtv2z8ErLJ1vqdGkN4q6iWj0-8k_ks",
+      authDomain: "report-buddy-55269.firebaseapp.com",
+      projectId: "report-buddy-55269",
+      storageBucket: "report-buddy-55269.firebasestorage.app",
+      messagingSenderId: "1046218133908",
+      appId: "1:1046218133908:web:2888f44db4aba4cff7ff81"
+    };
+
+    // Initialize Firebase
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
     }
+    this.auth = firebase.auth();
+  },
+
+  // Get current Firebase ID token
+  async getToken() {
+    const user = this.auth?.currentUser;
+    if (user) {
+      return await user.getIdToken();
+    }
+    return null;
   },
 
   async request(endpoint, options = {}) {
@@ -19,8 +42,9 @@ const API = {
       ...options.headers
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    const token = await this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     const response = await fetch(url, {
@@ -37,27 +61,59 @@ const API = {
     return data;
   },
 
-  // Auth
+  // Auth - using Firebase
   async login(email, password) {
-    const data = await this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password })
-    });
-    this.setToken(data.token);
-    return data;
+    try {
+      const userCredential = await this.auth.signInWithEmailAndPassword(email, password);
+      // Sync user to backend
+      const data = await this.request('/auth/verify', { method: 'POST' });
+      this.currentUser = data.user;
+      return data;
+    } catch (error) {
+      console.error('Firebase login error:', error.code, error.message);
+      throw new Error(error.message || 'Login failed');
+    }
   },
 
   async register(email, password, name) {
-    const data = await this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, name })
-    });
-    this.setToken(data.token);
-    return data;
+    try {
+      const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
+      // Update display name in Firebase
+      if (name && userCredential.user) {
+        await userCredential.user.updateProfile({ displayName: name });
+      }
+      // Sync user to backend
+      const data = await this.request('/auth/verify', { method: 'POST' });
+      this.currentUser = data.user;
+      return data;
+    } catch (error) {
+      console.error('Firebase register error:', error.code, error.message);
+      throw new Error(error.message || 'Registration failed');
+    }
   },
 
-  logout() {
-    this.setToken(null);
+  async logout() {
+    await this.auth.signOut();
+    this.currentUser = null;
+  },
+
+  // Check if user is logged in
+  onAuthStateChanged(callback) {
+    return this.auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        try {
+          const data = await this.request('/auth/verify', { method: 'POST' });
+          this.currentUser = data.user;
+          callback(data.user);
+        } catch (err) {
+          console.error('Auth verify error:', err);
+          callback(null);
+        }
+      } else {
+        this.currentUser = null;
+        callback(null);
+      }
+    });
   },
 
   // Reports
@@ -132,7 +188,7 @@ const API = {
     });
   },
 
-  // Policies (department policies and case law)
+  // Policies
   async uploadPolicy(filename, content) {
     return this.request('/legal/policy', {
       method: 'POST',
