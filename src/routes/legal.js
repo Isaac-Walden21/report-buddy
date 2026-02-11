@@ -31,7 +31,7 @@ router.post('/analyze/:reportId', async (req, res) => {
 
     res.json(analysis);
   } catch (error) {
-    console.error('Legal analysis error:', error);
+    console.error('Legal analysis error:', error.message);
     res.status(500).json({ error: 'Failed to analyze report' });
   }
 });
@@ -46,6 +46,13 @@ router.post('/policy', async (req, res) => {
       return res.status(400).json({ error: 'filename and content required' });
     }
 
+    if (filename.length > 200) {
+      return res.status(400).json({ error: 'Filename must be 200 characters or less' });
+    }
+    if (content.length > 100000) {
+      return res.status(400).json({ error: 'Policy content must be 100,000 characters or less' });
+    }
+
     const result = db.prepare(
       'INSERT INTO policy_documents (user_id, filename, content) VALUES (?, ?, ?)'
     ).run(userId, filename, content);
@@ -56,7 +63,7 @@ router.post('/policy', async (req, res) => {
       message: 'Policy document uploaded'
     });
   } catch (error) {
-    console.error('Policy upload error:', error);
+    console.error('Policy upload error:', error.message);
     res.status(500).json({ error: 'Failed to upload policy' });
   }
 });
@@ -71,7 +78,7 @@ router.get('/policies', (req, res) => {
 
     res.json(policies);
   } catch (error) {
-    console.error('Get policies error:', error);
+    console.error('Get policies error:', error.message);
     res.status(500).json({ error: 'Failed to get policies' });
   }
 });
@@ -92,7 +99,7 @@ router.delete('/policy/:id', (req, res) => {
 
     res.json({ message: 'Policy deleted' });
   } catch (error) {
-    console.error('Delete policy error:', error);
+    console.error('Delete policy error:', error.message);
     res.status(500).json({ error: 'Failed to delete policy' });
   }
 });

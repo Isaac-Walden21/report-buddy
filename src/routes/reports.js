@@ -27,7 +27,7 @@ router.post('/', (req, res) => {
 
     res.status(201).json(report);
   } catch (error) {
-    console.error('Create report error:', error);
+    console.error('Create report error:', error.message);
     res.status(500).json({ error: 'Failed to create report' });
   }
 });
@@ -51,7 +51,7 @@ router.get('/', (req, res) => {
     const reports = db.prepare(query).all(...params);
     res.json(reports);
   } catch (error) {
-    console.error('Get reports error:', error);
+    console.error('Get reports error:', error.message);
     res.status(500).json({ error: 'Failed to get reports' });
   }
 });
@@ -77,7 +77,7 @@ router.get('/:id', (req, res) => {
 
     res.json({ ...report, legal_references: references });
   } catch (error) {
-    console.error('Get report error:', error);
+    console.error('Get report error:', error.message);
     res.status(500).json({ error: 'Failed to get report' });
   }
 });
@@ -101,6 +101,19 @@ router.put('/:id', (req, res) => {
     const updates = [];
     const params = [];
 
+    // Validate status if provided
+    if (status !== undefined && !['draft', 'completed'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be draft or completed' });
+    }
+
+    // Validate input lengths
+    if (title !== undefined && title.length > 200) {
+      return res.status(400).json({ error: 'Title must be 200 characters or less' });
+    }
+    if (transcript !== undefined && transcript.length > 50000) {
+      return res.status(400).json({ error: 'Transcript must be 50,000 characters or less' });
+    }
+
     if (transcript !== undefined) { updates.push('transcript = ?'); params.push(transcript); }
     if (generated_content !== undefined) { updates.push('generated_content = ?'); params.push(generated_content); }
     if (final_content !== undefined) { updates.push('final_content = ?'); params.push(final_content); }
@@ -120,7 +133,7 @@ router.put('/:id', (req, res) => {
     const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(reportId);
     res.json(report);
   } catch (error) {
-    console.error('Update report error:', error);
+    console.error('Update report error:', error.message);
     res.status(500).json({ error: 'Failed to update report' });
   }
 });
@@ -141,7 +154,7 @@ router.delete('/:id', (req, res) => {
 
     res.json({ message: 'Report deleted' });
   } catch (error) {
-    console.error('Delete report error:', error);
+    console.error('Delete report error:', error.message);
     res.status(500).json({ error: 'Failed to delete report' });
   }
 });
@@ -168,7 +181,7 @@ router.post('/:id/suggest-charges', async (req, res) => {
     const result = await suggestCharges(content);
     res.json(result);
   } catch (error) {
-    console.error('Suggest charges error:', error);
+    console.error('Suggest charges error:', error.message);
     res.status(500).json({ error: 'Failed to suggest charges' });
   }
 });
@@ -203,7 +216,7 @@ router.post('/:id/check-elements', async (req, res) => {
     const result = await checkElements(content, charges, legalData);
     res.json(result);
   } catch (error) {
-    console.error('Check elements error:', error);
+    console.error('Check elements error:', error.message);
     res.status(500).json({ error: 'Failed to check elements' });
   }
 });

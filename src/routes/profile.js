@@ -29,7 +29,7 @@ router.get('/', (req, res) => {
       exampleCounts
     });
   } catch (error) {
-    console.error('Get profile error:', error);
+    console.error('Get profile error:', error.message);
     res.status(500).json({ error: 'Failed to get profile' });
   }
 });
@@ -59,7 +59,7 @@ router.put('/', (req, res) => {
 
     res.json(user);
   } catch (error) {
-    console.error('Update profile error:', error);
+    console.error('Update profile error:', error.message);
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
@@ -101,7 +101,7 @@ router.put('/style/:reportType', (req, res) => {
 
     res.json(profile);
   } catch (error) {
-    console.error('Update style error:', error);
+    console.error('Update style error:', error.message);
     res.status(500).json({ error: 'Failed to update style profile' });
   }
 });
@@ -140,7 +140,7 @@ router.post('/examples', (req, res) => {
       message: 'Example uploaded'
     });
   } catch (error) {
-    console.error('Upload example error:', error);
+    console.error('Upload example error:', error.message);
     res.status(500).json({ error: 'Failed to upload example' });
   }
 });
@@ -162,7 +162,7 @@ router.get('/examples', (req, res) => {
     const examples = db.prepare(query).all(...params);
     res.json(examples);
   } catch (error) {
-    console.error('Get examples error:', error);
+    console.error('Get examples error:', error.message);
     res.status(500).json({ error: 'Failed to get examples' });
   }
 });
@@ -183,7 +183,7 @@ router.delete('/examples/:id', (req, res) => {
 
     res.json({ message: 'Example deleted' });
   } catch (error) {
-    console.error('Delete example error:', error);
+    console.error('Delete example error:', error.message);
     res.status(500).json({ error: 'Failed to delete example' });
   }
 });

@@ -19,7 +19,7 @@ router.post('/check', async (req, res) => {
     const result = await generateFollowUpQuestions(report_type, transcript);
     res.json(result);
   } catch (error) {
-    console.error('Check transcript error:', error);
+    console.error('Check transcript error:', error.message);
     res.status(500).json({ error: 'Failed to check transcript' });
   }
 });
@@ -60,7 +60,7 @@ router.post('/report', async (req, res) => {
       suggested_title: suggestedTitle
     });
   } catch (error) {
-    console.error('Generate report error:', error);
+    console.error('Generate report error:', error.message);
     res.status(500).json({ error: 'Failed to generate report' });
   }
 });
@@ -100,7 +100,7 @@ router.post('/refine', async (req, res) => {
       generated_content: refinedContent
     });
   } catch (error) {
-    console.error('Refine report error:', error);
+    console.error('Refine report error:', error.message);
     res.status(500).json({ error: 'Failed to refine report' });
   }
 });

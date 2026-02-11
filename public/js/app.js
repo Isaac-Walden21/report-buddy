@@ -1,10 +1,25 @@
 // public/js/app.js
+
+// HTML escape utility to prevent XSS
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const App = {
   currentReport: null,
   currentView: 'auth',
   suggestedCharges: [],
 
   init() {
+    // Initialize Firebase Auth
+    API.init();
+
     this.bindEvents();
     this.checkAuth();
 
@@ -105,27 +120,39 @@ const App = {
     document.getElementById('mark-complete-btn').onclick = () => this.saveReport('completed');
     document.getElementById('report-title').onblur = () => this.saveTitle();
 
-    // Format toolbar buttons
+    // Format toolbar buttons (whitelist allowed commands)
+    const allowedCommands = ['bold', 'italic', 'underline'];
     document.querySelectorAll('.format-btn').forEach(btn => {
       btn.onclick = (e) => {
         e.preventDefault();
         const command = btn.dataset.command;
         if (command === 'highlight') {
           this.toggleHighlight();
-        } else {
+        } else if (allowedCommands.includes(command)) {
           document.execCommand(command, false, null);
         }
         document.getElementById('editor-content').focus();
       };
     });
+
+    // Sanitize pasted content in contenteditable editor
+    document.getElementById('editor-content').addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
   },
 
   checkAuth() {
-    if (API.token) {
-      this.showApp();
-    } else {
-      this.showAuth();
-    }
+    // Use Firebase auth state listener
+    API.onAuthStateChanged((user) => {
+      if (user) {
+        document.getElementById('user-name').textContent = user.name || user.email;
+        this.showApp();
+      } else {
+        this.showAuth();
+      }
+    });
   },
 
   showAuth() {
@@ -140,34 +167,70 @@ const App = {
   },
 
   async login() {
-    const email = document.getElementById('login-email').value;
+    const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
+
+    if (!email || !password) {
+      alert('Please enter email and password');
+      return;
+    }
+
+    const btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    btn.textContent = 'Logging in...';
 
     try {
       const data = await API.login(email, password);
       document.getElementById('user-name').textContent = data.user.name;
       this.showApp();
     } catch (error) {
-      alert(error.message);
+      console.error('Login error:', error);
+      alert('Login failed. Please check your email and password.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Log In';
     }
   },
 
   async register() {
-    const name = document.getElementById('register-name').value;
-    const email = document.getElementById('register-email').value;
+    const name = document.getElementById('register-name').value.trim();
+    const email = document.getElementById('register-email').value.trim();
     const password = document.getElementById('register-password').value;
+
+    if (!name || !email || !password) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    if (password.length < 8) {
+      alert('Password must be at least 8 characters');
+      return;
+    }
+
+    const btn = document.getElementById('register-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
 
     try {
       const data = await API.register(email, password, name);
       document.getElementById('user-name').textContent = data.user.name;
       this.showApp();
     } catch (error) {
-      alert(error.message);
+      console.error('Register error:', error);
+      alert('Registration failed. Please try again.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
     }
   },
 
-  logout() {
-    API.logout();
+  async logout() {
+    await API.logout();
+    // Clear service worker caches on logout
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+    }
     this.showAuth();
   },
 
@@ -190,12 +253,12 @@ const App = {
       }
 
       list.innerHTML = reports.map(r => `
-        <div class="report-item" data-id="${r.id}">
+        <div class="report-item" data-id="${escapeHtml(r.id)}">
           <div class="report-item-info">
-            <h4>${r.title || 'Untitled'}</h4>
-            <p>${r.report_type} • ${new Date(r.updated_at).toLocaleDateString()}</p>
+            <h4>${escapeHtml(r.title || 'Untitled')}</h4>
+            <p>${escapeHtml(r.report_type)} • ${escapeHtml(new Date(r.updated_at).toLocaleDateString())}</p>
           </div>
-          <span class="status-badge ${r.status}">${r.status}</span>
+          <span class="status-badge ${escapeHtml(r.status)}">${escapeHtml(r.status)}</span>
         </div>
       `).join('');
 
@@ -273,7 +336,7 @@ const App = {
       <div class="card" style="background:var(--bg-input)">
         <h4 style="margin-bottom:0.5rem">A few quick questions:</h4>
         <ul style="margin-left:1.25rem;color:var(--text-muted)">
-          ${questions.map(q => `<li>${q}</li>`).join('')}
+          ${questions.map(q => `<li>${escapeHtml(q)}</li>`).join('')}
         </ul>
         <p class="mt-1" style="font-size:0.9rem">Add these details above, then click Generate Report again.</p>
         <button id="generate-anyway-btn" class="btn btn-secondary mt-2" style="width:100%">Generate Anyway</button>
@@ -421,9 +484,9 @@ const App = {
       <label class="charge-item">
         <input type="checkbox" value="${i}" checked>
         <div class="charge-item-info">
-          <div class="charge-item-name">${c.charge}</div>
-          <div class="charge-item-statute">${c.statute}</div>
-          <div class="charge-item-level">${c.level}</div>
+          <div class="charge-item-name">${escapeHtml(c.charge)}</div>
+          <div class="charge-item-statute">${escapeHtml(c.statute)}</div>
+          <div class="charge-item-level">${escapeHtml(c.level)}</div>
         </div>
       </label>
     `).join('');
@@ -466,22 +529,22 @@ const App = {
 
     analysis.forEach(chargeAnalysis => {
       html += `<div class="element-analysis">`;
-      html += `<div class="element-charge-header">${chargeAnalysis.charge}</div>`;
+      html += `<div class="element-charge-header">${escapeHtml(chargeAnalysis.charge)}</div>`;
 
       chargeAnalysis.elements.forEach(el => {
         const statusIcon = el.status === 'met' ? '✓' : el.status === 'weak' ? '⚠' : '✗';
         const statusLabel = el.status === 'met' ? 'Established' : el.status === 'weak' ? 'Needs Strengthening' : 'Missing';
 
         html += `
-          <div class="element-item ${el.status}">
-            <div class="element-status ${el.status}">${statusIcon} ${el.element} - ${statusLabel}</div>
-            ${el.evidence ? `<div class="element-evidence">"${el.evidence}"</div>` : ''}
-            ${el.suggestion ? `<div class="element-suggestion">${el.suggestion}</div>` : ''}
+          <div class="element-item ${escapeHtml(el.status)}">
+            <div class="element-status ${escapeHtml(el.status)}">${statusIcon} ${escapeHtml(el.element)} - ${statusLabel}</div>
+            ${el.evidence ? `<div class="element-evidence">"${escapeHtml(el.evidence)}"</div>` : ''}
+            ${el.suggestion ? `<div class="element-suggestion">${escapeHtml(el.suggestion)}</div>` : ''}
           </div>
         `;
       });
 
-      html += `<div class="analysis-summary ${chargeAnalysis.overall}">${chargeAnalysis.summary}</div>`;
+      html += `<div class="analysis-summary ${escapeHtml(chargeAnalysis.overall)}">${escapeHtml(chargeAnalysis.summary)}</div>`;
       html += `</div>`;
     });
 
@@ -521,8 +584,8 @@ const App = {
       analysis.validations.forEach(v => {
         html += `
           <div class="legal-item">
-            <div class="legal-item-title">${v.action}</div>
-            <div class="legal-item-content">${v.case_law || ''} ${v.policy ? '• ' + v.policy : ''}</div>
+            <div class="legal-item-title">${escapeHtml(v.action)}</div>
+            <div class="legal-item-content">${escapeHtml(v.case_law || '')} ${v.policy ? '• ' + escapeHtml(v.policy) : ''}</div>
           </div>
         `;
       });
@@ -533,8 +596,8 @@ const App = {
       analysis.clarifications.forEach(c => {
         html += `
           <div class="legal-item clarification">
-            <div class="legal-item-title">${c.issue}</div>
-            <div class="legal-item-content">${c.suggestion}</div>
+            <div class="legal-item-title">${escapeHtml(c.issue)}</div>
+            <div class="legal-item-content">${escapeHtml(c.suggestion)}</div>
           </div>
         `;
       });
@@ -545,8 +608,8 @@ const App = {
       analysis.relevant_references.forEach(r => {
         html += `
           <div class="legal-item reference">
-            <div class="legal-item-title">${r.title}</div>
-            <div class="legal-item-content">${r.citation}<br>${r.relevance}</div>
+            <div class="legal-item-title">${escapeHtml(r.title)}</div>
+            <div class="legal-item-content">${escapeHtml(r.citation)}<br>${escapeHtml(r.relevance)}</div>
           </div>
         `;
       });
@@ -600,10 +663,10 @@ const App = {
         policiesList.innerHTML = deptPolicies.map(p => `
           <div class="settings-item">
             <div class="settings-item-info">
-              <h5>${p.filename}</h5>
-              <p>Added ${new Date(p.created_at).toLocaleDateString()}</p>
+              <h5>${escapeHtml(p.filename)}</h5>
+              <p>Added ${escapeHtml(new Date(p.created_at).toLocaleDateString())}</p>
             </div>
-            <button class="btn btn-delete" onclick="App.deletePolicy(${p.id})">Delete</button>
+            <button class="btn btn-delete" onclick="App.deletePolicy(${parseInt(p.id)})">Delete</button>
           </div>
         `).join('');
       }
@@ -614,10 +677,10 @@ const App = {
         caselawList.innerHTML = caseLaw.map(p => `
           <div class="settings-item">
             <div class="settings-item-info">
-              <h5>${p.filename.replace('[CASELAW] ', '')}</h5>
-              <p>Added ${new Date(p.created_at).toLocaleDateString()}</p>
+              <h5>${escapeHtml(p.filename.replace('[CASELAW] ', ''))}</h5>
+              <p>Added ${escapeHtml(new Date(p.created_at).toLocaleDateString())}</p>
             </div>
-            <button class="btn btn-delete" onclick="App.deletePolicy(${p.id})">Delete</button>
+            <button class="btn btn-delete" onclick="App.deletePolicy(${parseInt(p.id)})">Delete</button>
           </div>
         `).join('');
       }
@@ -637,10 +700,10 @@ const App = {
         list.innerHTML = examples.map(e => `
           <div class="settings-item">
             <div class="settings-item-info">
-              <h5>${e.report_type.charAt(0).toUpperCase() + e.report_type.slice(1)} Report</h5>
-              <p>${e.preview.substring(0, 50)}...</p>
+              <h5>${escapeHtml(e.report_type.charAt(0).toUpperCase() + e.report_type.slice(1))} Report</h5>
+              <p>${escapeHtml(e.preview.substring(0, 50))}...</p>
             </div>
-            <button class="btn btn-delete" onclick="App.deleteExample(${e.id})">Delete</button>
+            <button class="btn btn-delete" onclick="App.deleteExample(${parseInt(e.id)})">Delete</button>
           </div>
         `).join('');
       }
