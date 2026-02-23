@@ -1,27 +1,20 @@
-// src/routes/profile.js
 const express = require('express');
-const db = require('../db/database');
+const { getUser, updateUser, getAllStyleProfiles, updateStyleProfile, getExampleReports, countExampleReports, addExampleReport, deleteExampleReport, getExampleCounts } = require('../db/firestore');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authenticateToken);
 
 // Get user profile and style settings
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const user = db.prepare(
-      'SELECT id, email, name, jurisdiction_state, jurisdiction_county, created_at FROM users WHERE id = ?'
-    ).get(userId);
-
-    const styleProfiles = db.prepare(
-      'SELECT * FROM style_profiles WHERE user_id = ?'
-    ).all(userId);
-
-    const exampleCounts = db.prepare(
-      'SELECT report_type, COUNT(*) as count FROM example_reports WHERE user_id = ? GROUP BY report_type'
-    ).all(userId);
+    const [user, styleProfiles, exampleCounts] = await Promise.all([
+      getUser(userId),
+      getAllStyleProfiles(userId),
+      getExampleCounts(userId)
+    ]);
 
     res.json({
       user,
@@ -35,28 +28,36 @@ router.get('/', (req, res) => {
 });
 
 // Update user profile
-router.put('/', (req, res) => {
+router.put('/', async (req, res) => {
   try {
     const userId = req.user.userId;
     const { name, jurisdiction_state, jurisdiction_county } = req.body;
 
-    const updates = [];
-    const params = [];
-
-    if (name) { updates.push('name = ?'); params.push(name); }
-    if (jurisdiction_state !== undefined) { updates.push('jurisdiction_state = ?'); params.push(jurisdiction_state); }
-    if (jurisdiction_county !== undefined) { updates.push('jurisdiction_county = ?'); params.push(jurisdiction_county); }
-
-    if (updates.length > 0) {
-      updates.push('updated_at = CURRENT_TIMESTAMP');
-      params.push(userId);
-      db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    const updates = {};
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.length < 1 || name.length > 100) {
+        return res.status(400).json({ error: 'Name must be a string between 1 and 100 characters' });
+      }
+      updates.name = name;
+    }
+    if (jurisdiction_state !== undefined) {
+      if (jurisdiction_state !== null && (typeof jurisdiction_state !== 'string' || jurisdiction_state.length > 50)) {
+        return res.status(400).json({ error: 'Jurisdiction state must be a string of 50 characters or less' });
+      }
+      updates.jurisdiction_state = jurisdiction_state;
+    }
+    if (jurisdiction_county !== undefined) {
+      if (jurisdiction_county !== null && (typeof jurisdiction_county !== 'string' || jurisdiction_county.length > 100)) {
+        return res.status(400).json({ error: 'Jurisdiction county must be a string of 100 characters or less' });
+      }
+      updates.jurisdiction_county = jurisdiction_county;
     }
 
-    const user = db.prepare(
-      'SELECT id, email, name, jurisdiction_state, jurisdiction_county FROM users WHERE id = ?'
-    ).get(userId);
+    if (Object.keys(updates).length > 0) {
+      await updateUser(userId, updates);
+    }
 
+    const user = await getUser(userId);
     res.json(user);
   } catch (error) {
     console.error('Update profile error:', error.message);
@@ -65,7 +66,7 @@ router.put('/', (req, res) => {
 });
 
 // Update style profile for a report type
-router.put('/style/:reportType', (req, res) => {
+router.put('/style/:reportType', async (req, res) => {
   try {
     const userId = req.user.userId;
     const reportType = req.params.reportType;
@@ -77,28 +78,17 @@ router.put('/style/:reportType', (req, res) => {
 
     const { voice, detail_level, common_phrases, vocabulary_preferences } = req.body;
 
-    const updates = [];
-    const params = [];
+    const updates = {};
+    if (voice) updates.voice = voice;
+    if (detail_level) updates.detail_level = detail_level;
+    if (common_phrases) updates.common_phrases = common_phrases;
+    if (vocabulary_preferences) updates.vocabulary_preferences = vocabulary_preferences;
 
-    if (voice) { updates.push('voice = ?'); params.push(voice); }
-    if (detail_level) { updates.push('detail_level = ?'); params.push(detail_level); }
-    if (common_phrases) { updates.push('common_phrases = ?'); params.push(JSON.stringify(common_phrases)); }
-    if (vocabulary_preferences) { updates.push('vocabulary_preferences = ?'); params.push(JSON.stringify(vocabulary_preferences)); }
-
-    if (updates.length === 0) {
+    if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No valid fields to update. Valid fields: voice, detail_level, common_phrases, vocabulary_preferences' });
     }
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
-    params.push(userId, reportType);
-    db.prepare(
-      `UPDATE style_profiles SET ${updates.join(', ')} WHERE user_id = ? AND report_type = ?`
-    ).run(...params);
-
-    const profile = db.prepare(
-      'SELECT * FROM style_profiles WHERE user_id = ? AND report_type = ?'
-    ).get(userId, reportType);
-
+    const profile = await updateStyleProfile(userId, reportType, updates);
     res.json(profile);
   } catch (error) {
     console.error('Update style error:', error.message);
@@ -107,7 +97,7 @@ router.put('/style/:reportType', (req, res) => {
 });
 
 // Upload example report
-router.post('/examples', (req, res) => {
+router.post('/examples', async (req, res) => {
   try {
     const userId = req.user.userId;
     const { report_type, content } = req.body;
@@ -115,27 +105,24 @@ router.post('/examples', (req, res) => {
     if (!report_type || !content) {
       return res.status(400).json({ error: 'report_type and content required' });
     }
+    if (content.length > 50000) {
+      return res.status(400).json({ error: 'Content must be 50,000 characters or less' });
+    }
 
     const validTypes = ['incident', 'arrest', 'supplemental'];
     if (!validTypes.includes(report_type)) {
       return res.status(400).json({ error: 'Invalid report_type. Must be incident, arrest, or supplemental' });
     }
 
-    // Limit to 5 examples per type
-    const count = db.prepare(
-      'SELECT COUNT(*) as count FROM example_reports WHERE user_id = ? AND report_type = ?'
-    ).get(userId, report_type);
-
-    if (count.count >= 5) {
+    const count = await countExampleReports(userId, report_type);
+    if (count >= 5) {
       return res.status(400).json({ error: 'Maximum 5 examples per report type. Delete one first.' });
     }
 
-    const result = db.prepare(
-      'INSERT INTO example_reports (user_id, report_type, content) VALUES (?, ?, ?)'
-    ).run(userId, report_type, content);
+    const example = await addExampleReport(userId, report_type, content);
 
     res.status(201).json({
-      id: result.lastInsertRowid,
+      id: example.id,
       report_type,
       message: 'Example uploaded'
     });
@@ -146,21 +133,18 @@ router.post('/examples', (req, res) => {
 });
 
 // Get example reports
-router.get('/examples', (req, res) => {
+router.get('/examples', async (req, res) => {
   try {
     const userId = req.user.userId;
     const { report_type } = req.query;
 
-    let query = 'SELECT id, report_type, created_at, SUBSTR(content, 1, 200) as preview FROM example_reports WHERE user_id = ?';
-    const params = [userId];
-
-    if (report_type) {
-      query += ' AND report_type = ?';
-      params.push(report_type);
+    if (report_type && !['incident', 'arrest', 'supplemental'].includes(report_type)) {
+      return res.status(400).json({ error: 'Invalid report_type. Must be incident, arrest, or supplemental' });
     }
-
-    const examples = db.prepare(query).all(...params);
-    res.json(examples);
+    const examples = await getExampleReports(userId, report_type || null);
+    // Return without full content, just previews
+    const result = examples.map(({ content, ...rest }) => rest);
+    res.json(result);
   } catch (error) {
     console.error('Get examples error:', error.message);
     res.status(500).json({ error: 'Failed to get examples' });
@@ -168,16 +152,14 @@ router.get('/examples', (req, res) => {
 });
 
 // Delete example report
-router.delete('/examples/:id', (req, res) => {
+router.delete('/examples/:id', async (req, res) => {
   try {
     const userId = req.user.userId;
     const exampleId = req.params.id;
 
-    const result = db.prepare(
-      'DELETE FROM example_reports WHERE id = ? AND user_id = ?'
-    ).run(exampleId, userId);
+    const deleted = await deleteExampleReport(userId, exampleId);
 
-    if (result.changes === 0) {
+    if (!deleted) {
       return res.status(404).json({ error: 'Example not found' });
     }
 

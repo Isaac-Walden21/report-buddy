@@ -1,7 +1,7 @@
-// src/routes/reports.js
 const express = require('express');
-const db = require('../db/database');
+const { createReport, getReport, getReports, updateReport, deleteReport, getLegalReferences } = require('../db/firestore');
 const { authenticateToken } = require('../middleware/auth');
+const { requireSubscription } = require('../middleware/subscription');
 const { suggestCharges, checkElements, getUserPoliciesAndCaseLaw } = require('../services/ai');
 
 const router = express.Router();
@@ -10,7 +10,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new report
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { report_type, title } = req.body;
     const userId = req.user.userId;
@@ -19,12 +19,16 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Valid report_type required (incident, arrest, supplemental)' });
     }
 
-    const result = db.prepare(
-      'INSERT INTO reports (user_id, report_type, title) VALUES (?, ?, ?)'
-    ).run(userId, report_type, title || `New ${report_type} report`);
+    if (title !== undefined) {
+      if (typeof title !== 'string') {
+        return res.status(400).json({ error: 'Title must be a string' });
+      }
+      if (title.length > 200) {
+        return res.status(400).json({ error: 'Title must be 200 characters or less' });
+      }
+    }
 
-    const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(result.lastInsertRowid);
-
+    const report = await createReport(userId, report_type, title);
     res.status(201).json(report);
   } catch (error) {
     console.error('Create report error:', error.message);
@@ -32,24 +36,27 @@ router.post('/', (req, res) => {
   }
 });
 
-// Get all reports for user
-router.get('/', (req, res) => {
+// Get all reports for user (paginated)
+router.get('/', async (req, res) => {
   try {
     const userId = req.user.userId;
     const { status } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 25, 100);
 
-    let query = 'SELECT * FROM reports WHERE user_id = ?';
-    const params = [userId];
-
-    if (status) {
-      query += ' AND status = ?';
-      params.push(status);
+    if (page < 1 || limit < 1) {
+      return res.status(400).json({ error: 'page and limit must be positive integers' });
     }
 
-    query += ' ORDER BY updated_at DESC';
+    if (status && !['draft', 'completed'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be draft or completed' });
+    }
+    const allReports = await getReports(userId, status || null);
+    const total = allReports.length;
+    const offset = (page - 1) * limit;
+    const reports = allReports.slice(offset, offset + limit);
 
-    const reports = db.prepare(query).all(...params);
-    res.json(reports);
+    res.json({ reports, total, page, limit });
   } catch (error) {
     console.error('Get reports error:', error.message);
     res.status(500).json({ error: 'Failed to get reports' });
@@ -57,24 +64,18 @@ router.get('/', (req, res) => {
 });
 
 // Get single report
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const userId = req.user.userId;
     const reportId = req.params.id;
 
-    const report = db.prepare(
-      'SELECT * FROM reports WHERE id = ? AND user_id = ?'
-    ).get(reportId, userId);
+    const report = await getReport(userId, reportId);
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
     }
 
-    // Get legal references
-    const references = db.prepare(
-      'SELECT * FROM legal_references WHERE report_id = ?'
-    ).all(reportId);
-
+    const references = await getLegalReferences(userId, reportId);
     res.json({ ...report, legal_references: references });
   } catch (error) {
     console.error('Get report error:', error.message);
@@ -83,23 +84,18 @@ router.get('/:id', (req, res) => {
 });
 
 // Update report
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const userId = req.user.userId;
     const reportId = req.params.id;
     const { transcript, generated_content, final_content, status, title, case_number } = req.body;
 
     // Verify ownership
-    const existing = db.prepare(
-      'SELECT id FROM reports WHERE id = ? AND user_id = ?'
-    ).get(reportId, userId);
+    const existing = await getReport(userId, reportId);
 
     if (!existing) {
       return res.status(404).json({ error: 'Report not found' });
     }
-
-    const updates = [];
-    const params = [];
 
     // Validate status if provided
     if (status !== undefined && !['draft', 'completed'].includes(status)) {
@@ -113,24 +109,29 @@ router.put('/:id', (req, res) => {
     if (transcript !== undefined && transcript.length > 50000) {
       return res.status(400).json({ error: 'Transcript must be 50,000 characters or less' });
     }
+    if (case_number !== undefined && case_number.length > 50) {
+      return res.status(400).json({ error: 'Case number must be 50 characters or less' });
+    }
+    if (generated_content !== undefined && generated_content.length > 100000) {
+      return res.status(400).json({ error: 'Generated content must be 100,000 characters or less' });
+    }
+    if (final_content !== undefined && final_content.length > 100000) {
+      return res.status(400).json({ error: 'Final content must be 100,000 characters or less' });
+    }
 
-    if (transcript !== undefined) { updates.push('transcript = ?'); params.push(transcript); }
-    if (generated_content !== undefined) { updates.push('generated_content = ?'); params.push(generated_content); }
-    if (final_content !== undefined) { updates.push('final_content = ?'); params.push(final_content); }
-    if (status !== undefined) { updates.push('status = ?'); params.push(status); }
-    if (title !== undefined) { updates.push('title = ?'); params.push(title); }
-    if (case_number !== undefined) { updates.push('case_number = ?'); params.push(case_number); }
+    const updates = {};
+    if (transcript !== undefined) updates.transcript = transcript;
+    if (generated_content !== undefined) updates.generated_content = generated_content;
+    if (final_content !== undefined) updates.final_content = final_content;
+    if (status !== undefined) updates.status = status;
+    if (title !== undefined) updates.title = title;
+    if (case_number !== undefined) updates.case_number = case_number;
 
-    if (updates.length === 0) {
+    if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No updates provided' });
     }
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
-    params.push(reportId);
-
-    db.prepare(`UPDATE reports SET ${updates.join(', ')} WHERE id = ?`).run(...params);
-
-    const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(reportId);
+    const report = await updateReport(userId, reportId, updates);
     res.json(report);
   } catch (error) {
     console.error('Update report error:', error.message);
@@ -139,16 +140,14 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete report
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const userId = req.user.userId;
     const reportId = req.params.id;
 
-    const result = db.prepare(
-      'DELETE FROM reports WHERE id = ? AND user_id = ?'
-    ).run(reportId, userId);
+    const deleted = await deleteReport(userId, reportId);
 
-    if (result.changes === 0) {
+    if (!deleted) {
       return res.status(404).json({ error: 'Report not found' });
     }
 
@@ -159,15 +158,13 @@ router.delete('/:id', (req, res) => {
   }
 });
 
-// Suggest charges based on report content
-router.post('/:id/suggest-charges', async (req, res) => {
+// Suggest charges based on report content (AI — requires subscription)
+router.post('/:id/suggest-charges', requireSubscription, async (req, res) => {
   try {
     const userId = req.user.userId;
     const reportId = req.params.id;
 
-    const report = db.prepare(
-      'SELECT * FROM reports WHERE id = ? AND user_id = ?'
-    ).get(reportId, userId);
+    const report = await getReport(userId, reportId);
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
@@ -186,8 +183,8 @@ router.post('/:id/suggest-charges', async (req, res) => {
   }
 });
 
-// Check if report meets elements of specified charges
-router.post('/:id/check-elements', async (req, res) => {
+// Check if report meets elements of specified charges (AI — requires subscription)
+router.post('/:id/check-elements', requireSubscription, async (req, res) => {
   try {
     const userId = req.user.userId;
     const reportId = req.params.id;
@@ -196,10 +193,16 @@ router.post('/:id/check-elements', async (req, res) => {
     if (!charges || !Array.isArray(charges) || charges.length === 0) {
       return res.status(400).json({ error: 'charges array required' });
     }
+    if (charges.length > 10) {
+      return res.status(400).json({ error: 'Maximum 10 charges allowed' });
+    }
+    for (const charge of charges) {
+      if (typeof charge !== 'string' || charge.length > 200) {
+        return res.status(400).json({ error: 'Each charge must be a string of 200 characters or less' });
+      }
+    }
 
-    const report = db.prepare(
-      'SELECT * FROM reports WHERE id = ? AND user_id = ?'
-    ).get(reportId, userId);
+    const report = await getReport(userId, reportId);
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
@@ -210,9 +213,7 @@ router.post('/:id/check-elements', async (req, res) => {
       return res.status(400).json({ error: 'No report content to analyze' });
     }
 
-    // Get user's policies and case law for context
-    const legalData = getUserPoliciesAndCaseLaw(userId);
-
+    const legalData = await getUserPoliciesAndCaseLaw(userId);
     const result = await checkElements(content, charges, legalData);
     res.json(result);
   } catch (error) {

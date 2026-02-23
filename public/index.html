@@ -8,13 +8,14 @@
   <title>Report Buddy</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/css/styles.css">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23d4a53c' width='100' height='100' rx='12'/%3E%3Cpath fill='%230d0f12' d='M25 20h50v8H25zM25 36h50v4H25zM25 48h50v4H25zM25 60h35v4H25zM25 72h45v4H25z'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/png" href="/icons/icon-192.png">
 </head>
 <body>
   <div class="app">
     <!-- Auth Views -->
     <div id="auth-view" class="auth-container">
       <div id="login-form" class="auth-form">
+        <img src="/images/logo.png" alt="Report Buddy" class="auth-logo">
         <h2>Report Buddy</h2>
         <div class="form-group">
           <label for="login-email">Email</label>
@@ -29,6 +30,7 @@
       </div>
 
       <div id="register-form" class="auth-form hidden">
+        <img src="/images/logo.png" alt="Report Buddy" class="auth-logo">
         <h2>Create Account</h2>
         <div class="form-group">
           <label for="register-name">Full Name</label>
@@ -50,13 +52,23 @@
     <!-- Main App (hidden until logged in) -->
     <div id="app-view" class="hidden">
       <header class="header">
-        <h1>Report Buddy</h1>
+        <div class="header-brand">
+          <img src="/images/logo.png" alt="Report Buddy" class="header-logo">
+          <h1>Report Buddy</h1>
+        </div>
         <div>
           <span id="user-name"></span>
+          <button id="manage-plan-btn" class="btn btn-secondary hidden">Manage Plan</button>
           <button id="settings-btn" class="btn btn-secondary">Settings</button>
           <button id="logout-btn" class="btn btn-secondary">Logout</button>
         </div>
       </header>
+
+      <!-- Subscription Banner -->
+      <div id="subscription-banner" class="subscription-banner hidden">
+        <span id="subscription-banner-text"></span>
+        <button id="banner-subscribe-btn" class="btn btn-primary btn-sm hidden">Subscribe Now</button>
+      </div>
 
       <main class="main">
         <!-- Dashboard -->
@@ -156,6 +168,7 @@
                 <div class="panel-header-buttons">
                   <button id="caselaw-btn" class="btn btn-secondary">Case Law</button>
                   <button id="analyze-btn" class="btn btn-secondary">Elements</button>
+                  <button id="editor-court-prep-btn" class="btn btn-secondary">Court Prep</button>
                 </div>
               </div>
               <div class="panel-content" id="legal-content">
@@ -174,6 +187,70 @@
             <button id="editor-back-btn" class="btn btn-secondary">Back to Dashboard</button>
             <button id="save-draft-btn" class="btn btn-secondary">Save Draft</button>
             <button id="mark-complete-btn" class="btn btn-primary">Mark Complete</button>
+          </div>
+        </div>
+
+        <!-- Court Prep View -->
+        <div id="court-prep-view" class="hidden">
+          <div class="court-prep-layout">
+            <!-- Left Column: Report Summary -->
+            <div class="court-prep-panel court-prep-report">
+              <div class="panel-header">
+                Report Summary
+                <button id="court-prep-back-btn" class="btn btn-secondary">Back</button>
+              </div>
+              <div class="panel-content">
+                <h4 id="court-prep-report-title" class="court-prep-title"></h4>
+                <div id="court-prep-report-content" class="court-prep-report-text"></div>
+              </div>
+            </div>
+
+            <!-- Right Column: Cross-Examination -->
+            <div class="court-prep-panel court-prep-exam">
+              <div class="panel-header">
+                Cross-Examination
+                <div class="panel-header-buttons">
+                  <span id="court-prep-status" class="court-prep-status-badge">Analyzing</span>
+                </div>
+              </div>
+
+              <!-- Vulnerability Assessment (collapsible) -->
+              <div id="court-prep-vuln-section" class="court-prep-vuln-section hidden">
+                <button id="court-prep-vuln-toggle" class="court-prep-vuln-toggle">
+                  <span>Vulnerability Assessment</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="court-prep-vuln-content" class="court-prep-vuln-content"></div>
+              </div>
+
+              <!-- Chat Messages -->
+              <div id="court-prep-messages" class="court-prep-messages">
+                <div id="court-prep-loading" class="court-prep-loading">
+                  <div class="court-prep-spinner"></div>
+                  <p>Analyzing report for vulnerabilities...</p>
+                </div>
+              </div>
+
+              <!-- Input Area -->
+              <div id="court-prep-input-area" class="court-prep-input-area hidden">
+                <div class="court-prep-input-row">
+                  <input type="text" id="court-prep-input" class="form-input" placeholder="Type your response...">
+                  <button id="court-prep-voice-btn" class="court-prep-voice-btn" title="Voice input">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                      <line x1="12" y1="19" x2="12" y2="23"/>
+                      <line x1="8" y1="23" x2="16" y2="23"/>
+                    </svg>
+                  </button>
+                  <button id="court-prep-send-btn" class="btn btn-primary">Send</button>
+                </div>
+                <div class="court-prep-actions">
+                  <button id="court-prep-end-btn" class="btn btn-secondary">End Session</button>
+                  <button id="court-prep-debrief-btn" class="btn btn-primary">Get Debrief</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -254,12 +331,39 @@
           </div>
         </div>
       </main>
+
+      <!-- Paywall Modal -->
+      <div id="paywall-overlay" class="paywall-overlay hidden">
+        <div class="paywall-modal">
+          <button id="paywall-close-btn" class="paywall-close">&times;</button>
+          <div class="paywall-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <h3>Upgrade to Report Buddy Pro</h3>
+          <p class="paywall-subtitle">Your free trial has ended. Subscribe to continue using AI-powered features.</p>
+          <ul class="paywall-features">
+            <li>AI report generation from voice or text</li>
+            <li>Smart report refinement</li>
+            <li>Case law analysis &amp; citations</li>
+            <li>Charge suggestion &amp; element checking</li>
+          </ul>
+          <div class="paywall-price">
+            <span class="paywall-amount">$9.99</span>
+            <span class="paywall-period">/month</span>
+          </div>
+          <button id="paywall-subscribe-btn" class="btn btn-primary paywall-cta">Subscribe Now</button>
+          <p class="paywall-note">Free features (create/edit reports, manage policies) remain available.</p>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 
   <script src="/js/api.js"></script>
   <script src="/js/voice.js"></script>

@@ -1,11 +1,9 @@
-// src/routes/generate.js
 const express = require('express');
-const db = require('../db/database');
-const { authenticateToken } = require('../middleware/auth');
+const { getReport, updateReport } = require('../db/firestore');
 const { generateReport, generateFollowUpQuestions, refineReport, generateTitle } = require('../services/ai');
 
 const router = express.Router();
-router.use(authenticateToken);
+// authenticateToken + requireSubscription applied at app level in index.js
 
 // Check transcript and get follow-up questions or confirm ready
 router.post('/check', async (req, res) => {
@@ -14,6 +12,9 @@ router.post('/check', async (req, res) => {
 
     if (!transcript || !report_type) {
       return res.status(400).json({ error: 'transcript and report_type required' });
+    }
+    if (transcript.length > 50000) {
+      return res.status(400).json({ error: 'Transcript must be 50,000 characters or less' });
     }
 
     const result = await generateFollowUpQuestions(report_type, transcript);
@@ -28,16 +29,16 @@ router.post('/check', async (req, res) => {
 router.post('/report', async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { report_id, transcript } = req.body;
+    const { report_id, transcript, incomplete } = req.body;
 
     if (!report_id || !transcript) {
       return res.status(400).json({ error: 'report_id and transcript required' });
     }
+    if (transcript.length > 50000) {
+      return res.status(400).json({ error: 'Transcript must be 50,000 characters or less' });
+    }
 
-    // Get report
-    const report = db.prepare(
-      'SELECT * FROM reports WHERE id = ? AND user_id = ?'
-    ).get(report_id, userId);
+    const report = await getReport(userId, report_id);
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
@@ -45,14 +46,16 @@ router.post('/report', async (req, res) => {
 
     // Generate report and title in parallel
     const [generatedContent, suggestedTitle] = await Promise.all([
-      generateReport(userId, report.report_type, transcript),
+      generateReport(userId, report.report_type, transcript, { incomplete: !!incomplete }),
       generateTitle(report.report_type, transcript)
     ]);
 
     // Update report with content and title
-    db.prepare(
-      'UPDATE reports SET transcript = ?, generated_content = ?, title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-    ).run(transcript, generatedContent, suggestedTitle, report_id);
+    await updateReport(userId, report_id, {
+      transcript,
+      generated_content: generatedContent,
+      title: suggestedTitle
+    });
 
     res.json({
       report_id,
@@ -74,10 +77,11 @@ router.post('/refine', async (req, res) => {
     if (!report_id || !refinement) {
       return res.status(400).json({ error: 'report_id and refinement required' });
     }
+    if (refinement.length > 10000) {
+      return res.status(400).json({ error: 'Refinement must be 10,000 characters or less' });
+    }
 
-    const report = db.prepare(
-      'SELECT * FROM reports WHERE id = ? AND user_id = ?'
-    ).get(report_id, userId);
+    const report = await getReport(userId, report_id);
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
@@ -90,10 +94,11 @@ router.post('/refine', async (req, res) => {
 
     const refinedContent = await refineReport(currentContent, refinement);
 
-    // Update report
-    db.prepare(
-      'UPDATE reports SET generated_content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-    ).run(refinedContent, report_id);
+    // Update report — clear final_content so stale edits don't persist
+    await updateReport(userId, report_id, {
+      generated_content: refinedContent,
+      final_content: null
+    });
 
     res.json({
       report_id,

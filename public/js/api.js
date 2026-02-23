@@ -55,6 +55,13 @@ const API = {
     const data = await response.json();
 
     if (!response.ok) {
+      // Intercept subscription-required errors to trigger paywall
+      if (response.status === 403 && data.code === 'SUBSCRIPTION_REQUIRED') {
+        if (typeof App !== 'undefined' && App.showPaywallModal) {
+          App.showPaywallModal();
+        }
+        throw new Error('Subscription required to use AI features');
+      }
       throw new Error(data.error || 'Request failed');
     }
 
@@ -117,8 +124,9 @@ const API = {
   },
 
   // Reports
-  async getReports(status) {
-    const query = status ? `?status=${status}` : '';
+  async getReports(status, page = 1, limit = 25) {
+    let query = `?page=${page}&limit=${limit}`;
+    if (status) query += `&status=${status}`;
     return this.request(`/reports${query}`);
   },
 
@@ -154,10 +162,12 @@ const API = {
     });
   },
 
-  async generateReport(reportId, transcript) {
+  async generateReport(reportId, transcript, { incomplete = false } = {}) {
+    const payload = { report_id: reportId, transcript };
+    if (incomplete) payload.incomplete = true;
     return this.request('/generate/report', {
       method: 'POST',
-      body: JSON.stringify({ report_id: reportId, transcript })
+      body: JSON.stringify(payload)
     });
   },
 
@@ -227,5 +237,44 @@ const API = {
     return this.request(`/profile/examples/${id}`, {
       method: 'DELETE'
     });
+  },
+
+  // Court Prep
+  async courtPrepStart(reportId) {
+    return this.request('/court-prep/start', {
+      method: 'POST',
+      body: JSON.stringify({ report_id: reportId })
+    });
+  },
+
+  async courtPrepMessage(reportId, sessionId, message) {
+    return this.request('/court-prep/message', {
+      method: 'POST',
+      body: JSON.stringify({ report_id: reportId, session_id: sessionId, message })
+    });
+  },
+
+  async courtPrepDebrief(reportId, sessionId) {
+    return this.request('/court-prep/debrief', {
+      method: 'POST',
+      body: JSON.stringify({ report_id: reportId, session_id: sessionId })
+    });
+  },
+
+  async courtPrepEnd(reportId, sessionId) {
+    return this.request('/court-prep/end', {
+      method: 'POST',
+      body: JSON.stringify({ report_id: reportId, session_id: sessionId })
+    });
+  },
+
+  // Stripe / Subscription
+  async createCheckoutSession() {
+    return this.request('/stripe/create-checkout-session', { method: 'POST' });
+  },
+
+  async openCustomerPortal() {
+    const data = await this.request('/stripe/create-portal-session', { method: 'POST' });
+    window.location.href = data.url;
   }
 };

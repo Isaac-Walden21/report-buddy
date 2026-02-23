@@ -1,5 +1,5 @@
 // public/sw.js
-const CACHE_NAME = 'report-buddy-v2';
+const CACHE_NAME = 'report-buddy-v3';
 const STATIC_ASSETS = [
   '/',
   '/css/styles.css',
@@ -36,15 +36,32 @@ self.addEventListener('fetch', (event) => {
   // Only handle http/https requests (skip chrome-extension, etc)
   if (!event.request.url.startsWith('http')) return;
 
+  // Don't cache API calls
+  if (event.request.url.includes('/api/')) return;
+
+  // Don't cache external URLs
+  if (!event.request.url.startsWith(self.location.origin)) return;
+
+  // Network-first for JS, CSS, HTML (ensures fresh code after deploys)
+  if (event.request.url.match(/\.(js|css|html)$/) || event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for everything else (fonts, images)
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      // Return cached if available, otherwise fetch
       return cached || fetch(event.request).then((response) => {
-        // Don't cache API calls or external URLs
-        if (event.request.url.includes('/api/') || !event.request.url.startsWith(self.location.origin)) {
-          return response;
-        }
-        // Cache other successful responses
         if (response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));

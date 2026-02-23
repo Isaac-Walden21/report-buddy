@@ -177,6 +177,19 @@ body::after {
   );
 }
 
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.header-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .header h1 {
   font-family: var(--font-display);
   font-size: 1.6rem;
@@ -184,29 +197,6 @@ body::after {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-/* Shield/Badge Icon */
-.header h1::before {
-  content: '';
-  width: 32px;
-  height: 36px;
-  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-dim) 100%);
-  clip-path: polygon(50% 0%, 100% 15%, 100% 70%, 50% 100%, 0% 70%, 0% 15%);
-  position: relative;
-}
-
-.header h1::after {
-  content: '';
-  position: absolute;
-  left: calc(var(--space-6) + 8px);
-  width: 16px;
-  height: 18px;
-  background: var(--bg-base);
-  clip-path: polygon(50% 20%, 85% 35%, 85% 65%, 50% 85%, 15% 65%, 15% 35%);
 }
 
 .header > div {
@@ -1124,6 +1114,17 @@ select.form-input {
   pointer-events: none;
 }
 
+.auth-logo {
+  display: block;
+  width: 100px;
+  height: 100px;
+  margin: 0 auto var(--space-6);
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
 .auth-form h2 {
   font-family: var(--font-display);
   font-size: 2rem;
@@ -1361,6 +1362,527 @@ select.form-input {
 .mb-2 { margin-bottom: var(--space-4); }
 
 /* ============================================
+   SUBSCRIPTION BANNER
+   ============================================ */
+.subscription-banner {
+  background: linear-gradient(90deg, var(--bg-elevated) 0%, var(--bg-surface) 50%, var(--bg-elevated) 100%);
+  border-bottom: 1px solid var(--accent-dim);
+  padding: var(--space-3) var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  position: relative;
+  z-index: 99;
+}
+
+.subscription-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent-dim) 30%, var(--accent) 50%, var(--accent-dim) 70%, transparent 100%);
+}
+
+.subscription-banner.warning {
+  color: var(--status-warning);
+  border-bottom-color: rgba(251, 191, 36, 0.3);
+}
+
+.subscription-banner.warning::before {
+  background: linear-gradient(90deg, transparent 0%, rgba(251, 191, 36, 0.3) 30%, var(--status-warning) 50%, rgba(251, 191, 36, 0.3) 70%, transparent 100%);
+}
+
+.subscription-banner.error {
+  color: var(--status-error);
+  border-bottom-color: rgba(248, 113, 113, 0.3);
+}
+
+.subscription-banner.error::before {
+  background: linear-gradient(90deg, transparent 0%, rgba(248, 113, 113, 0.3) 30%, var(--status-error) 50%, rgba(248, 113, 113, 0.3) 70%, transparent 100%);
+}
+
+.btn-sm {
+  padding: 0.4rem 1rem;
+  font-size: 0.7rem;
+}
+
+/* ============================================
+   PAYWALL MODAL
+   ============================================ */
+.paywall-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(6, 8, 16, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s var(--ease-out-expo);
+}
+
+.paywall-modal {
+  background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-elevated) 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: var(--space-10);
+  max-width: 440px;
+  width: 90%;
+  text-align: center;
+  position: relative;
+  box-shadow: var(--shadow-lg), 0 0 60px var(--accent-glow);
+  animation: fadeSlideIn 0.4s var(--ease-out-expo);
+}
+
+.paywall-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-dim), var(--accent));
+  border-radius: 12px 12px 0 0;
+}
+
+.paywall-close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: var(--space-2);
+  line-height: 1;
+  transition: color var(--duration-fast);
+}
+
+.paywall-close:hover {
+  color: var(--text-primary);
+}
+
+.paywall-icon {
+  color: var(--accent);
+  margin-bottom: var(--space-5);
+}
+
+.paywall-modal h3 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: var(--space-3);
+}
+
+.paywall-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: var(--space-6);
+  line-height: 1.5;
+}
+
+.paywall-features {
+  list-style: none;
+  text-align: left;
+  margin-bottom: var(--space-6);
+}
+
+.paywall-features li {
+  padding: var(--space-2) 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  position: relative;
+  padding-left: var(--space-6);
+}
+
+.paywall-features li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.paywall-price {
+  margin-bottom: var(--space-5);
+}
+
+.paywall-amount {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.paywall-period {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.paywall-cta {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1rem;
+  margin-bottom: var(--space-4);
+}
+
+.paywall-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ============================================
+   COURT PREP — Mock Cross-Examination
+   ============================================ */
+.court-prep-layout {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: var(--space-4);
+  height: calc(100vh - 180px);
+}
+
+.court-prep-panel {
+  background: var(--bg-surface);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.court-prep-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin-bottom: var(--space-4);
+  text-transform: uppercase;
+}
+
+.court-prep-report-text {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+
+/* Vulnerability Assessment — Collapsible */
+.court-prep-vuln-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.court-prep-vuln-toggle {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-elevated);
+  border: none;
+  color: var(--status-warning);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background var(--duration-fast);
+}
+
+.court-prep-vuln-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.court-prep-vuln-toggle svg {
+  transition: transform var(--duration-fast);
+}
+
+.court-prep-vuln-toggle.collapsed svg {
+  transform: rotate(-90deg);
+}
+
+.court-prep-vuln-content {
+  padding: var(--space-4);
+  background: var(--bg-input);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  max-height: 250px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.court-prep-vuln-content.collapsed {
+  display: none;
+}
+
+/* Chat Messages */
+.court-prep-messages {
+  flex: 1;
+  padding: var(--space-4);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.court-prep-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.court-prep-messages::-webkit-scrollbar-track {
+  background: var(--bg-input);
+  border-radius: 4px;
+}
+
+.court-prep-messages::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+  border: 2px solid var(--bg-input);
+}
+
+.court-prep-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-dim);
+}
+
+.court-prep-msg {
+  max-width: 85%;
+  padding: var(--space-4);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  animation: fadeSlideIn 0.3s var(--ease-out-expo) both;
+}
+
+.court-prep-msg-attorney {
+  align-self: flex-start;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-error);
+  color: var(--text-primary);
+}
+
+.court-prep-msg-officer {
+  align-self: flex-end;
+  background: var(--accent-subtle);
+  border: 1px solid rgba(224, 172, 62, 0.2);
+  border-right: 3px solid var(--accent-dim);
+  color: var(--text-primary);
+}
+
+.court-prep-msg-label {
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-2);
+}
+
+.court-prep-msg-attorney .court-prep-msg-label {
+  color: var(--status-error);
+}
+
+.court-prep-msg-officer .court-prep-msg-label {
+  color: var(--accent);
+}
+
+.court-prep-msg-time {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  margin-top: var(--space-2);
+}
+
+/* Input Area */
+.court-prep-input-area {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.court-prep-input-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.court-prep-input-row .form-input {
+  flex: 1;
+}
+
+.court-prep-voice-btn {
+  width: 44px;
+  height: 44px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+  flex-shrink: 0;
+}
+
+.court-prep-voice-btn:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.court-prep-voice-btn.recording {
+  background: var(--status-error);
+  border-color: var(--status-error);
+  color: white;
+  animation: pulse-record 1.2s ease-in-out infinite;
+}
+
+.court-prep-actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+/* Status Badge */
+.court-prep-status-badge {
+  font-family: var(--font-display);
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.court-prep-status-badge.analyzing {
+  background: var(--status-info-bg);
+  color: var(--status-info);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+.court-prep-status-badge.active {
+  background: var(--status-success-bg);
+  color: var(--status-success);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.court-prep-status-badge.completed {
+  background: var(--status-warning-bg);
+  color: var(--status-warning);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+/* Loading State */
+.court-prep-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10);
+  color: var(--text-muted);
+  gap: var(--space-4);
+}
+
+.court-prep-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.court-prep-loading p {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Debrief */
+.court-prep-debrief {
+  padding: var(--space-5);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  margin-top: var(--space-4);
+}
+
+.court-prep-debrief-header {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: var(--space-4);
+}
+
+.court-prep-debrief-content {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+
+/* Dashboard Court Prep Button */
+.court-prep-icon-btn {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+  flex-shrink: 0;
+}
+
+.court-prep-icon-btn:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.court-prep-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ============================================
    RESPONSIVE DESIGN
    ============================================ */
 @media (max-width: 1200px) {
@@ -1371,6 +1893,19 @@ select.form-input {
 
   .editor-panel {
     min-height: 380px;
+  }
+
+  .court-prep-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .court-prep-panel {
+    min-height: 400px;
+  }
+
+  .court-prep-messages {
+    min-height: 300px;
   }
 }
 

@@ -1,12 +1,11 @@
-// src/routes/auth.js
 const express = require('express');
 const admin = require('../services/firebase');
-const db = require('../db/database');
+const { getUser, createUser, updateUser, updateSubscription, hasSubscriptionAccess } = require('../db/firestore');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Verify token and sync user to local database
-// Called after Firebase client-side authentication
+// Verify token and sync user to Firestore
 router.post('/verify', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -16,33 +15,30 @@ router.post('/verify', async (req, res) => {
       return res.status(401).json({ error: 'Token required' });
     }
 
-    // Verify Firebase ID token
     const decodedToken = await admin.auth().verifyIdToken(token);
 
-    // Get or create user in local database
-    let user = db.prepare('SELECT id, firebase_uid, email, name FROM users WHERE firebase_uid = ?').get(decodedToken.uid);
+    let user = await getUser(decodedToken.uid);
 
     if (!user) {
-      // User doesn't exist locally, create them
-      const result = db.prepare(
-        'INSERT INTO users (firebase_uid, email, name) VALUES (?, ?, ?)'
-      ).run(decodedToken.uid, decodedToken.email, decodedToken.name || decodedToken.email.split('@')[0]);
-
-      // Create default style profiles for new user
-      const reportTypes = ['incident', 'arrest', 'supplemental'];
-      const insertProfile = db.prepare(
-        'INSERT INTO style_profiles (user_id, report_type) VALUES (?, ?)'
-      );
-      for (const type of reportTypes) {
-        insertProfile.run(result.lastInsertRowid, type);
+      if (!decodedToken.email) {
+        return res.status(400).json({ error: 'Email is required for registration' });
       }
+      user = await createUser(
+        decodedToken.uid,
+        decodedToken.email,
+        decodedToken.name || decodedToken.email.split('@')[0]
+      );
+    }
 
-      user = {
-        id: result.lastInsertRowid,
-        firebase_uid: decodedToken.uid,
-        email: decodedToken.email,
-        name: decodedToken.name || decodedToken.email.split('@')[0]
-      };
+    // Backfill subscription fields for existing users missing them
+    if (!user.subscription_status) {
+      const trialEnd = new Date(new Date(user.created_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      await updateSubscription(user.id, {
+        subscription_status: 'trialing',
+        trial_ends_at: trialEnd
+      });
+      user.subscription_status = 'trialing';
+      user.trial_ends_at = trialEnd;
     }
 
     res.json({
@@ -50,7 +46,10 @@ router.post('/verify', async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name
+        name: user.name,
+        subscription_status: user.subscription_status,
+        trial_ends_at: user.trial_ends_at,
+        has_subscription: hasSubscriptionAccess(user)
       }
     });
   } catch (error) {
@@ -64,27 +63,19 @@ router.post('/verify', async (req, res) => {
   }
 });
 
-// Update user profile (name)
-router.put('/profile', async (req, res) => {
+// Update user profile (name) — uses shared authenticateToken middleware
+router.put('/profile', authenticateToken, async (req, res) => {
   try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(401).json({ error: 'Token required' });
-    }
-
-    const decodedToken = await admin.auth().verifyIdToken(token);
     const { name } = req.body;
 
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'Name is required and must be a string' });
     }
-    if (name.length > 100) {
-      return res.status(400).json({ error: 'Name must be 100 characters or less' });
+    if (name.length < 1 || name.length > 100) {
+      return res.status(400).json({ error: 'Name must be between 1 and 100 characters' });
     }
 
-    db.prepare('UPDATE users SET name = ? WHERE firebase_uid = ?').run(name, decodedToken.uid);
+    await updateUser(req.user.userId, { name });
 
     res.json({ message: 'Profile updated', name });
   } catch (error) {

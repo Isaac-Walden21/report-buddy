@@ -1,11 +1,9 @@
-// src/routes/legal.js
 const express = require('express');
-const db = require('../db/database');
-const { authenticateToken } = require('../middleware/auth');
+const { getReport, getPolicyDocuments, addPolicyDocument, deletePolicyDocument } = require('../db/firestore');
 const { analyzeReport, saveLegalReferences } = require('../services/legal');
 
 const router = express.Router();
-router.use(authenticateToken);
+// authenticateToken + requireSubscription applied at app level in index.js
 
 // Analyze report for legal references
 router.post('/analyze/:reportId', async (req, res) => {
@@ -13,9 +11,7 @@ router.post('/analyze/:reportId', async (req, res) => {
     const userId = req.user.userId;
     const reportId = req.params.reportId;
 
-    const report = db.prepare(
-      'SELECT * FROM reports WHERE id = ? AND user_id = ?'
-    ).get(reportId, userId);
+    const report = await getReport(userId, reportId);
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
@@ -27,7 +23,7 @@ router.post('/analyze/:reportId', async (req, res) => {
     }
 
     const analysis = await analyzeReport(userId, content, report.report_type);
-    saveLegalReferences(reportId, analysis);
+    await saveLegalReferences(userId, reportId, analysis);
 
     res.json(analysis);
   } catch (error) {
@@ -46,19 +42,24 @@ router.post('/policy', async (req, res) => {
       return res.status(400).json({ error: 'filename and content required' });
     }
 
+    if (typeof filename !== 'string') {
+      return res.status(400).json({ error: 'Filename must be a string' });
+    }
     if (filename.length > 200) {
       return res.status(400).json({ error: 'Filename must be 200 characters or less' });
+    }
+    const UNSAFE_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1f]/;
+    if (UNSAFE_FILENAME_CHARS.test(filename)) {
+      return res.status(400).json({ error: 'Filename contains invalid characters' });
     }
     if (content.length > 100000) {
       return res.status(400).json({ error: 'Policy content must be 100,000 characters or less' });
     }
 
-    const result = db.prepare(
-      'INSERT INTO policy_documents (user_id, filename, content) VALUES (?, ?, ?)'
-    ).run(userId, filename, content);
+    const doc = await addPolicyDocument(userId, filename, content, false);
 
     res.status(201).json({
-      id: result.lastInsertRowid,
+      id: doc.id,
       filename,
       message: 'Policy document uploaded'
     });
@@ -69,12 +70,10 @@ router.post('/policy', async (req, res) => {
 });
 
 // Get user's policy documents
-router.get('/policies', (req, res) => {
+router.get('/policies', async (req, res) => {
   try {
     const userId = req.user.userId;
-    const policies = db.prepare(
-      'SELECT id, filename, created_at FROM policy_documents WHERE user_id = ?'
-    ).all(userId);
+    const policies = await getPolicyDocuments(userId);
 
     res.json(policies);
   } catch (error) {
@@ -84,16 +83,14 @@ router.get('/policies', (req, res) => {
 });
 
 // Delete policy document
-router.delete('/policy/:id', (req, res) => {
+router.delete('/policy/:id', async (req, res) => {
   try {
     const userId = req.user.userId;
     const policyId = req.params.id;
 
-    const result = db.prepare(
-      'DELETE FROM policy_documents WHERE id = ? AND user_id = ?'
-    ).run(policyId, userId);
+    const deleted = await deletePolicyDocument(userId, policyId);
 
-    if (result.changes === 0) {
+    if (!deleted) {
       return res.status(404).json({ error: 'Policy not found' });
     }
 

@@ -7,3 +7,10 @@ node_modules/
 data/
 .DS_Store
 .firebase/
+*.key
+*.pem
+*.p12
+serviceAccountKey.json
+functions/.env
+.env.local
+.env.production

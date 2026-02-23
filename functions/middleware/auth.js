@@ -1,6 +1,5 @@
-// src/middleware/auth.js
 const admin = require('../services/firebase');
-const db = require('../db/database');
+const { getUser, createUser } = require('../db/firestore');
 
 async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -11,41 +10,29 @@ async function authenticateToken(req, res, next) {
   }
 
   try {
-    // Verify Firebase ID token
     const decodedToken = await admin.auth().verifyIdToken(token);
 
-    // Get or create user in local database
-    let user = db.prepare('SELECT id, firebase_uid, email, name FROM users WHERE firebase_uid = ?').get(decodedToken.uid);
+    let user = await getUser(decodedToken.uid);
 
     if (!user) {
-      // User doesn't exist locally, create them
-      const result = db.prepare(
-        'INSERT INTO users (firebase_uid, email, name) VALUES (?, ?, ?)'
-      ).run(decodedToken.uid, decodedToken.email, decodedToken.name || decodedToken.email.split('@')[0]);
-
-      // Create default style profiles for new user
-      const reportTypes = ['incident', 'arrest', 'supplemental'];
-      const insertProfile = db.prepare(
-        'INSERT INTO style_profiles (user_id, report_type) VALUES (?, ?)'
-      );
-      for (const type of reportTypes) {
-        insertProfile.run(result.lastInsertRowid, type);
+      if (!decodedToken.email) {
+        return res.status(400).json({ error: 'Email is required for registration' });
       }
-
-      user = {
-        id: result.lastInsertRowid,
-        firebase_uid: decodedToken.uid,
-        email: decodedToken.email,
-        name: decodedToken.name || decodedToken.email.split('@')[0]
-      };
+      user = await createUser(
+        decodedToken.uid,
+        decodedToken.email,
+        decodedToken.name || decodedToken.email.split('@')[0]
+      );
     }
 
-    // Attach user info to request
     req.user = {
-      userId: user.id,
+      userId: decodedToken.uid,
       firebaseUid: decodedToken.uid,
       email: decodedToken.email,
-      name: user.name
+      name: user.name,
+      subscriptionStatus: user.subscription_status || null,
+      trialEndsAt: user.trial_ends_at || null,
+      stripeCustomerId: user.stripe_customer_id || null
     };
 
     next();
