@@ -352,13 +352,20 @@ const App = {
     }
 
     if (this.subscriptionStatus === 'trialing' && this.trialEndsAt) {
-      const daysLeft = Math.max(0, Math.ceil((new Date(this.trialEndsAt) - new Date()) / (1000 * 60 * 60 * 24)));
+      const msLeft = new Date(this.trialEndsAt) - new Date();
+      const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
       if (daysLeft > 0) {
         banner.classList.remove('hidden');
-        bannerText.textContent = `Free trial: ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`;
+        if (daysLeft === 1) {
+          const hoursLeft = Math.max(1, Math.ceil(msLeft / (1000 * 60 * 60)));
+          bannerText.textContent = `Free trial: ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''} remaining`;
+        } else {
+          bannerText.textContent = `Free trial: ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`;
+        }
         bannerBtn.classList.remove('hidden');
-        if (daysLeft <= 2) {
+        if (daysLeft <= 3) {
           banner.classList.add('warning');
+          this.showRetentionToast(daysLeft);
         }
         managePlanBtn.classList.add('hidden');
         return;
@@ -417,6 +424,46 @@ const App = {
     } catch (error) {
       alert('Failed to start checkout: ' + error.message);
     }
+  },
+
+  showRetentionToast(daysLeft) {
+    if (sessionStorage.getItem('retention_toast_shown')) return;
+
+    const messages = {
+      3: "Don't waste your time writing reports by hand. Subscribe and let AI do the heavy lifting.",
+      2: "It's the same price as Netflix — and it saves you hours every week. Keep your access.",
+      1: "Your trial ends today. Don't lose access to AI report generation and court prep."
+    };
+
+    const message = messages[daysLeft] || messages[3];
+    const toast = document.getElementById('retention-toast');
+    const msgEl = document.getElementById('retention-toast-message');
+    const countdownEl = document.getElementById('retention-toast-countdown');
+
+    msgEl.textContent = message;
+    if (daysLeft === 1) {
+      const hoursLeft = Math.max(1, Math.ceil((new Date(this.trialEndsAt) - new Date()) / (1000 * 60 * 60)));
+      countdownEl.textContent = `Trial ends in ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}`;
+    } else {
+      countdownEl.textContent = `Trial ends in ${daysLeft} days`;
+    }
+
+    toast.classList.remove('hidden');
+    sessionStorage.setItem('retention_toast_shown', 'true');
+
+    this._retentionToastTimer = setTimeout(() => {
+      this.dismissRetentionToast();
+    }, 10000);
+  },
+
+  dismissRetentionToast() {
+    clearTimeout(this._retentionToastTimer);
+    const toast = document.getElementById('retention-toast');
+    toast.classList.add('dismissing');
+    setTimeout(() => {
+      toast.classList.add('hidden');
+      toast.classList.remove('dismissing');
+    }, 300);
   },
 
   _startIdleTracking() {
