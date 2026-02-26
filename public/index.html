@@ -436,6 +436,14 @@
           <p class="paywall-note">You can also upgrade from Manage Plan in your account settings.</p>
         </div>
       </div>
+
+      <!-- Retention Toast -->
+      <div id="retention-toast" class="retention-toast hidden">
+        <button class="retention-toast-close" onclick="App.dismissRetentionToast()">&times;</button>
+        <p id="retention-toast-message" class="retention-toast-message"></p>
+        <p id="retention-toast-countdown" class="retention-toast-countdown"></p>
+        <button class="btn btn-primary btn-sm" onclick="App.startCheckout('pro')">Subscribe Now</button>
+      </div>
     </div>
   </div>
 
