@@ -505,6 +505,13 @@ async function populateGlobalCaseLaw() {
   console.log('Global case law seeded');
 }
 
+function hasProAccess(user) {
+  if (!hasSubscriptionAccess(user)) return false;
+  // Trial users get pro access during trial
+  if (user.subscription_status === 'trialing') return true;
+  return user.subscription_tier === 'pro';
+}
+
 // --- Court Prep Session Operations ---
 
 async function createCourtPrepSession(uid, reportId) {
@@ -575,6 +582,7 @@ async function updateSubscription(uid, data) {
     'stripe_customer_id',
     'subscription_status',
     'subscription_id',
+    'subscription_tier',
     'subscription_current_period_end',
     'trial_ends_at'
   ];
@@ -654,6 +662,7 @@ module.exports = {
   updateSubscription,
   getUserByStripeCustomerId,
   hasSubscriptionAccess,
+  hasProAccess,
   createCourtPrepSession,
   getCourtPrepSession,
   updateCourtPrepSession,

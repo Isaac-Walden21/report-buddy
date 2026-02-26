@@ -115,6 +115,9 @@ router.post('/examples', (req, res) => {
     if (!report_type || !content) {
       return res.status(400).json({ error: 'report_type and content required' });
     }
+    if (content.length > 50000) {
+      return res.status(400).json({ error: 'Content must be 50,000 characters or less' });
+    }
 
     const validTypes = ['incident', 'arrest', 'supplemental'];
     if (!validTypes.includes(report_type)) {

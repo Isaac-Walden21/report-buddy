@@ -1270,19 +1270,22 @@ select.form-input {
   color: var(--text-muted);
 }
 
-.settings-item .btn-delete {
+.btn-delete {
   background: transparent;
   border: 1px solid var(--status-error);
   color: var(--status-error);
+}
+
+.btn-delete:hover {
+  background: var(--status-error);
+  color: white;
+}
+
+.settings-item .btn-delete {
   padding: 0.35rem 0.7rem;
   font-size: 0.7rem;
   margin-left: var(--space-3);
   flex-shrink: 0;
-}
-
-.settings-item .btn-delete:hover {
-  background: var(--status-error);
-  color: white;
 }
 
 /* ============================================
@@ -1446,6 +1449,10 @@ select.form-input {
   animation: fadeSlideIn 0.4s var(--ease-out-expo);
 }
 
+.paywall-modal-tiered {
+  max-width: 700px;
+}
+
 .paywall-modal::before {
   content: '';
   position: absolute;
@@ -1552,6 +1559,107 @@ select.form-input {
   font-size: 0.8rem;
   color: var(--text-muted);
   line-height: 1.4;
+}
+
+/* Pro Badge */
+.pro-badge {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+  color: var(--bg-void);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-left: 0.25rem;
+}
+
+/* ============================================
+   PAYWALL — Two-Tier Layout
+   ============================================ */
+.paywall-tiers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.paywall-tier {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-6);
+  text-align: center;
+  position: relative;
+  transition: border-color var(--duration-normal);
+}
+
+.paywall-tier:hover {
+  border-color: var(--border-strong);
+}
+
+.paywall-tier-featured {
+  border-color: var(--accent-dim);
+  background: linear-gradient(180deg, rgba(224, 172, 62, 0.06) 0%, var(--bg-input) 100%);
+}
+
+.paywall-tier-featured:hover {
+  border-color: var(--accent);
+}
+
+.paywall-tier-badge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background: var(--accent);
+  color: var(--bg-void);
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.paywall-tier-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.paywall-tier .paywall-price {
+  margin-bottom: var(--space-4);
+}
+
+.paywall-tier .paywall-features {
+  margin-bottom: var(--space-5);
+  text-align: left;
+}
+
+.paywall-tier-btn {
+  width: 100%;
+  padding: 0.8rem;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 600px) {
+  .paywall-tiers {
+    grid-template-columns: 1fr;
+  }
+
+  .paywall-modal-tiered {
+    max-width: 440px;
+  }
 }
 
 /* ============================================
@@ -1880,6 +1988,114 @@ select.form-input {
 .court-prep-icon-btn svg {
   width: 16px;
   height: 16px;
+}
+
+/* Dashboard Delete Button */
+.delete-report-btn {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+  flex-shrink: 0;
+}
+
+.delete-report-btn:hover {
+  border-color: var(--status-error);
+  color: var(--status-error);
+  background: var(--status-error-bg);
+}
+
+.delete-report-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ============================================
+   QUICK COURT PREP — Dashboard Card
+   ============================================ */
+.quick-court-prep-card {
+  background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-elevated) 100%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-6);
+  margin-bottom: var(--space-8);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out-expo);
+  position: relative;
+  overflow: hidden;
+}
+
+.quick-court-prep-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--status-error) 0%, var(--accent) 100%);
+}
+
+.quick-court-prep-card:hover {
+  border-color: var(--accent-dim);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg), 0 0 30px var(--accent-glow);
+}
+
+.quick-court-prep-card.expanded {
+  cursor: default;
+  transform: none;
+  box-shadow: var(--shadow-md);
+}
+
+.quick-court-prep-card.expanded:hover {
+  transform: none;
+}
+
+.quick-court-prep-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.quick-court-prep-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.quick-court-prep-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.quick-court-prep-header h3 {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.quick-court-prep-header p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.quick-court-prep-form {
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
 }
 
 /* ============================================

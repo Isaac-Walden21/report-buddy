@@ -9,9 +9,30 @@ const router = express.Router();
 // to bypass auth and use raw body parsing for Stripe signature verification.
 router.use(authenticateToken);
 
+// Price ID mapping
+const PRICE_IDS = {
+  standard: process.env.STRIPE_PRICE_ID,
+  pro: process.env.STRIPE_PRO_PRICE_ID
+};
+
+function tierFromPriceId(priceId) {
+  if (priceId === PRICE_IDS.pro) return 'pro';
+  return 'standard';
+}
+
 // Create Stripe Checkout Session
 router.post('/create-checkout-session', async (req, res) => {
   try {
+    const { tier = 'standard' } = req.body;
+    if (!['standard', 'pro'].includes(tier)) {
+      return res.status(400).json({ error: 'Invalid tier' });
+    }
+
+    const priceId = PRICE_IDS[tier];
+    if (!priceId) {
+      return res.status(500).json({ error: `Price not configured for ${tier} tier` });
+    }
+
     const user = await getUser(req.user.userId);
 
     // Create or reuse Stripe Customer
@@ -27,18 +48,18 @@ router.post('/create-checkout-session', async (req, res) => {
 
     // Guard against creating duplicate subscriptions
     if (user.subscription_status === 'active' && user.subscription_id) {
-      return res.status(400).json({ error: 'You already have an active subscription' });
+      return res.status(400).json({ error: 'You already have an active subscription. Use Manage Plan to change tiers.' });
     }
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       line_items: [{
-        price: process.env.STRIPE_PRICE_ID,
+        price: priceId,
         quantity: 1
       }],
-      success_url: 'https://report-buddy-55269.web.app/?subscription=success',
-      cancel_url: 'https://report-buddy-55269.web.app/?subscription=canceled'
+      success_url: 'https://getreportbuddy.com/?subscription=success',
+      cancel_url: 'https://getreportbuddy.com/?subscription=canceled'
     });
 
     res.json({ url: session.url });
@@ -59,7 +80,7 @@ router.post('/create-portal-session', async (req, res) => {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: user.stripe_customer_id,
-      return_url: 'https://report-buddy-55269.web.app/'
+      return_url: 'https://getreportbuddy.com/'
     });
 
     res.json({ url: session.url });
@@ -93,11 +114,12 @@ async function handleWebhook(req, res) {
 
         const user = await getUserByStripeCustomerId(customerId);
         if (user) {
-          // Retrieve the subscription to get period end
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          const priceId = subscription.items.data[0]?.price?.id;
           await updateSubscription(user.id, {
             subscription_status: 'active',
             subscription_id: subscriptionId,
+            subscription_tier: tierFromPriceId(priceId),
             stripe_customer_id: customerId,
             subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString()
           });
@@ -111,8 +133,10 @@ async function handleWebhook(req, res) {
 
         const user = await getUserByStripeCustomerId(customerId);
         if (user) {
+          const priceId = subscription.items.data[0]?.price?.id;
           await updateSubscription(user.id, {
             subscription_status: subscription.status,
+            subscription_tier: tierFromPriceId(priceId),
             subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString()
           });
         }

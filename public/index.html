@@ -89,6 +89,41 @@
             </div>
           </div>
 
+          <!-- Quick Court Prep -->
+          <h2>Court Prep</h2>
+          <div id="quick-court-prep" class="quick-court-prep-card">
+            <div class="quick-court-prep-header">
+              <div class="quick-court-prep-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                  <path d="M9 12l2 2 4-4"/>
+                </svg>
+              </div>
+              <div>
+                <h3>Mock Cross-Examination <span class="pro-badge">PRO</span></h3>
+                <p>Paste a report narrative and practice defending it on the stand</p>
+              </div>
+            </div>
+            <div id="quick-court-prep-form" class="quick-court-prep-form hidden">
+              <div class="form-group">
+                <label>Report Type</label>
+                <select id="quick-cp-type" class="form-input">
+                  <option value="incident">Incident Report</option>
+                  <option value="arrest">Arrest Report</option>
+                  <option value="supplemental">Supplemental Report</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Paste Your Narrative</label>
+                <textarea id="quick-cp-content" class="form-input" rows="6" placeholder="Paste your report narrative here..."></textarea>
+              </div>
+              <div style="display:flex;gap:0.75rem">
+                <button id="quick-cp-cancel" class="btn btn-secondary">Cancel</button>
+                <button id="quick-cp-start" class="btn btn-primary" style="flex:1">Start Cross-Examination</button>
+              </div>
+            </div>
+          </div>
+
           <h2>Recent Reports</h2>
           <div id="reports-list" class="reports-list">
             <!-- Populated by JS -->
@@ -168,7 +203,7 @@
                 <div class="panel-header-buttons">
                   <button id="caselaw-btn" class="btn btn-secondary">Case Law</button>
                   <button id="analyze-btn" class="btn btn-secondary">Elements</button>
-                  <button id="editor-court-prep-btn" class="btn btn-secondary">Court Prep</button>
+                  <button id="editor-court-prep-btn" class="btn btn-secondary">Court Prep <span class="pro-badge">PRO</span></button>
                 </div>
               </div>
               <div class="panel-content" id="legal-content">
@@ -185,6 +220,8 @@
           </div>
           <div style="margin-top:1rem;display:flex;gap:1rem">
             <button id="editor-back-btn" class="btn btn-secondary">Back to Dashboard</button>
+            <button id="delete-report-btn" class="btn btn-delete hidden">Delete Draft</button>
+            <div style="flex:1"></div>
             <button id="save-draft-btn" class="btn btn-secondary">Save Draft</button>
             <button id="mark-complete-btn" class="btn btn-primary">Mark Complete</button>
           </div>
@@ -332,30 +369,71 @@
         </div>
       </main>
 
-      <!-- Paywall Modal -->
+      <!-- Paywall Modal — Two Tiers -->
       <div id="paywall-overlay" class="paywall-overlay hidden">
-        <div class="paywall-modal">
+        <div class="paywall-modal paywall-modal-tiered">
           <button id="paywall-close-btn" class="paywall-close">&times;</button>
+          <h3>Choose Your Plan</h3>
+          <p class="paywall-subtitle">Your free trial has ended. Subscribe to continue using Report Buddy.</p>
+          <div class="paywall-tiers">
+            <div class="paywall-tier">
+              <div class="paywall-tier-name">Standard</div>
+              <div class="paywall-price">
+                <span class="paywall-amount">$9.99</span>
+                <span class="paywall-period">/month</span>
+              </div>
+              <ul class="paywall-features">
+                <li>AI report generation from voice or text</li>
+                <li>Smart report refinement</li>
+                <li>Case law analysis &amp; citations</li>
+                <li>Charge suggestion &amp; element checking</li>
+              </ul>
+              <button class="btn btn-secondary paywall-tier-btn" onclick="App.startCheckout('standard')">Subscribe</button>
+            </div>
+            <div class="paywall-tier paywall-tier-featured">
+              <div class="paywall-tier-badge">Recommended</div>
+              <div class="paywall-tier-name">Pro</div>
+              <div class="paywall-price">
+                <span class="paywall-amount">$15.99</span>
+                <span class="paywall-period">/month</span>
+              </div>
+              <ul class="paywall-features">
+                <li>Everything in Standard</li>
+                <li>Mock cross-examination prep</li>
+                <li>Report vulnerability assessment</li>
+                <li>Performance debrief &amp; coaching</li>
+              </ul>
+              <button class="btn btn-primary paywall-tier-btn" onclick="App.startCheckout('pro')">Subscribe</button>
+            </div>
+          </div>
+          <p class="paywall-note">Free features remain available. Cancel anytime.</p>
+        </div>
+      </div>
+
+      <!-- Pro Upgrade Modal — For Standard Subscribers -->
+      <div id="pro-upgrade-overlay" class="paywall-overlay hidden">
+        <div class="paywall-modal">
+          <button id="pro-upgrade-close-btn" class="paywall-close">&times;</button>
           <div class="paywall-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+              <path d="M9 12l2 2 4-4"/>
             </svg>
           </div>
-          <h3>Upgrade to Report Buddy Pro</h3>
-          <p class="paywall-subtitle">Your free trial has ended. Subscribe to continue using AI-powered features.</p>
+          <h3>Upgrade to Pro</h3>
+          <p class="paywall-subtitle">Court Prep requires a Pro subscription. Practice defending your reports before taking the stand.</p>
           <ul class="paywall-features">
-            <li>AI report generation from voice or text</li>
-            <li>Smart report refinement</li>
-            <li>Case law analysis &amp; citations</li>
-            <li>Charge suggestion &amp; element checking</li>
+            <li>AI defense attorney cross-examination</li>
+            <li>Report vulnerability assessment</li>
+            <li>Performance debrief &amp; coaching</li>
+            <li>Voice or text responses</li>
           </ul>
           <div class="paywall-price">
-            <span class="paywall-amount">$9.99</span>
+            <span class="paywall-amount">$15.99</span>
             <span class="paywall-period">/month</span>
           </div>
-          <button id="paywall-subscribe-btn" class="btn btn-primary paywall-cta">Subscribe Now</button>
-          <p class="paywall-note">Free features (create/edit reports, manage policies) remain available.</p>
+          <button id="pro-upgrade-subscribe-btn" class="btn btn-primary paywall-cta">Upgrade to Pro</button>
+          <p class="paywall-note">You can also upgrade from Manage Plan in your account settings.</p>
         </div>
       </div>
     </div>

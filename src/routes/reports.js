@@ -37,19 +37,31 @@ router.get('/', (req, res) => {
   try {
     const userId = req.user.userId;
     const { status } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 25, 100);
 
+    if (page < 1 || limit < 1) {
+      return res.status(400).json({ error: 'page and limit must be positive integers' });
+    }
+
+    const offset = (page - 1) * limit;
+
+    let countQuery = 'SELECT COUNT(*) as total FROM reports WHERE user_id = ?';
     let query = 'SELECT * FROM reports WHERE user_id = ?';
     const params = [userId];
 
     if (status) {
+      countQuery += ' AND status = ?';
       query += ' AND status = ?';
       params.push(status);
     }
 
-    query += ' ORDER BY updated_at DESC';
+    const { total } = db.prepare(countQuery).get(...params);
 
-    const reports = db.prepare(query).all(...params);
-    res.json(reports);
+    query += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
+    const reports = db.prepare(query).all(...params, limit, offset);
+
+    res.json({ reports, total, page, limit });
   } catch (error) {
     console.error('Get reports error:', error.message);
     res.status(500).json({ error: 'Failed to get reports' });
@@ -112,6 +124,15 @@ router.put('/:id', (req, res) => {
     }
     if (transcript !== undefined && transcript.length > 50000) {
       return res.status(400).json({ error: 'Transcript must be 50,000 characters or less' });
+    }
+    if (case_number !== undefined && case_number.length > 50) {
+      return res.status(400).json({ error: 'Case number must be 50 characters or less' });
+    }
+    if (generated_content !== undefined && generated_content.length > 100000) {
+      return res.status(400).json({ error: 'Generated content must be 100,000 characters or less' });
+    }
+    if (final_content !== undefined && final_content.length > 100000) {
+      return res.status(400).json({ error: 'Final content must be 100,000 characters or less' });
     }
 
     if (transcript !== undefined) { updates.push('transcript = ?'); params.push(transcript); }

@@ -17,7 +17,9 @@ app.set('trust proxy', 1);
 // Allowed origins for CORS
 const allowedOrigins = [
   'https://report-buddy-55269.web.app',
-  'https://report-buddy-55269.firebaseapp.com'
+  'https://report-buddy-55269.firebaseapp.com',
+  'https://getreportbuddy.com',
+  'https://www.getreportbuddy.com'
 ];
 
 // Middleware
@@ -97,14 +99,14 @@ const generateRoutes = require('./routes/generate');
 const legalRoutes = require('./routes/legal');
 const profileRoutes = require('./routes/profile');
 const courtPrepRoutes = require('./routes/court-prep');
-const { requireSubscription } = require('./middleware/subscription');
+const { requireSubscription, requireProSubscription } = require('./middleware/subscription');
 const { authenticateToken } = require('./middleware/auth');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/reports', aiLimiter, reportRoutes);
 app.use('/api/generate', aiLimiter, authenticateToken, requireSubscription, generateRoutes);
 app.use('/api/legal', aiLimiter, authenticateToken, requireSubscription, legalRoutes);
-app.use('/api/court-prep', aiLimiter, authenticateToken, requireSubscription, courtPrepRoutes);
+app.use('/api/court-prep', aiLimiter, authenticateToken, requireProSubscription, courtPrepRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/stripe', stripeRouter);
 

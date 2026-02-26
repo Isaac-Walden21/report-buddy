@@ -16,8 +16,10 @@ const App = {
   currentView: 'auth',
   suggestedCharges: [],
   subscriptionStatus: null,
+  subscriptionTier: null,
   trialEndsAt: null,
   hasSubscription: false,
+  hasPro: false,
 
   // Court Prep state
   courtPrepSessionId: null,
@@ -90,8 +92,9 @@ const App = {
     document.getElementById('logout-btn').onclick = () => this.logout();
     document.getElementById('manage-plan-btn').onclick = () => API.openCustomerPortal();
     document.getElementById('paywall-close-btn').onclick = () => this.hidePaywallModal();
-    document.getElementById('paywall-subscribe-btn').onclick = () => this.startCheckout();
-    document.getElementById('banner-subscribe-btn').onclick = () => this.startCheckout();
+    document.getElementById('banner-subscribe-btn').onclick = () => this.showPaywallModal();
+    document.getElementById('pro-upgrade-close-btn').onclick = () => this.hideProUpgradeModal();
+    document.getElementById('pro-upgrade-subscribe-btn').onclick = () => this.startCheckout('pro');
 
     // Settings events
     document.getElementById('settings-btn').onclick = () => {
@@ -134,6 +137,7 @@ const App = {
     document.getElementById('analyze-btn').onclick = () => this.suggestChargesForReport();
     document.getElementById('check-elements-btn').onclick = () => this.checkElementsForReport();
     document.getElementById('editor-court-prep-btn').onclick = () => this.startCourtPrep(this.currentReport.id);
+    document.getElementById('delete-report-btn').onclick = () => this.deleteCurrentReport();
     document.getElementById('save-draft-btn').onclick = () => this.saveReport('draft');
     document.getElementById('mark-complete-btn').onclick = () => this.saveReport('completed');
     document.getElementById('report-title').onblur = () => this.saveTitle();
@@ -169,6 +173,23 @@ const App = {
       }
     });
 
+    // Quick Court Prep (dashboard)
+    document.getElementById('quick-court-prep').onclick = (e) => {
+      const card = document.getElementById('quick-court-prep');
+      const form = document.getElementById('quick-court-prep-form');
+      if (!card.classList.contains('expanded') && !e.target.closest('button, input, select, textarea')) {
+        card.classList.add('expanded');
+        form.classList.remove('hidden');
+        document.getElementById('quick-cp-content').focus();
+      }
+    };
+    document.getElementById('quick-cp-cancel').onclick = () => {
+      document.getElementById('quick-court-prep').classList.remove('expanded');
+      document.getElementById('quick-court-prep-form').classList.add('hidden');
+      document.getElementById('quick-cp-content').value = '';
+    };
+    document.getElementById('quick-cp-start').onclick = () => this.quickCourtPrepStart();
+
     // Court Prep events
     document.getElementById('court-prep-back-btn').onclick = () => {
       this.courtPrepCleanup();
@@ -194,8 +215,10 @@ const App = {
       if (user) {
         document.getElementById('user-name').textContent = user.name || user.email;
         this.subscriptionStatus = user.subscription_status || 'trialing';
+        this.subscriptionTier = user.subscription_tier || null;
         this.trialEndsAt = user.trial_ends_at || null;
         this.hasSubscription = user.has_subscription || false;
+        this.hasPro = user.has_pro || false;
         this.showApp();
         this.updateSubscriptionUI();
 
@@ -208,8 +231,10 @@ const App = {
             try {
               const data = await API.request('/auth/verify', { method: 'POST' });
               this.subscriptionStatus = data.user.subscription_status;
+              this.subscriptionTier = data.user.subscription_tier;
               this.trialEndsAt = data.user.trial_ends_at;
               this.hasSubscription = data.user.has_subscription;
+              this.hasPro = data.user.has_pro;
               this.updateSubscriptionUI();
             } catch (e) {
               console.error('Failed to refresh subscription:', e);
@@ -296,8 +321,10 @@ const App = {
     this.currentReport = null;
     this.suggestedCharges = [];
     this.subscriptionStatus = null;
+    this.subscriptionTier = null;
     this.trialEndsAt = null;
     this.hasSubscription = false;
+    this.hasPro = false;
     await API.logout();
     // Clear service worker caches on logout
     if ('caches' in window) {
@@ -370,9 +397,20 @@ const App = {
     document.getElementById('paywall-overlay').classList.add('hidden');
   },
 
-  async startCheckout() {
+  showProUpgradeModal() {
+    document.getElementById('pro-upgrade-overlay').classList.remove('hidden');
+  },
+
+  hideProUpgradeModal() {
+    document.getElementById('pro-upgrade-overlay').classList.add('hidden');
+  },
+
+  async startCheckout(tier = 'standard') {
+    // Hide any open modals
+    this.hidePaywallModal();
+    this.hideProUpgradeModal();
     try {
-      const data = await API.createCheckoutSession();
+      const data = await API.createCheckoutSession(tier);
       if (data.url) {
         window.location.href = data.url;
       }
@@ -449,6 +487,12 @@ const App = {
                 <path d="M9 12l2 2 4-4"/>
               </svg>
             </button>` : ''}
+            ${r.status === 'draft' ? `<button class="delete-report-btn" data-report-id="${escapeHtml(r.id)}" title="Delete draft">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </button>` : ''}
             <span class="status-badge ${escapeHtml(r.status)}">${escapeHtml(r.status)}</span>
           </div>
         </div>
@@ -461,8 +505,8 @@ const App = {
 
       list.querySelectorAll('.report-item').forEach(item => {
         item.onclick = (e) => {
-          // Don't open report if clicking the court prep button
           if (e.target.closest('.court-prep-icon-btn')) return;
+          if (e.target.closest('.delete-report-btn')) return;
           this.openReport(item.dataset.id);
         };
       });
@@ -472,6 +516,14 @@ const App = {
         btn.onclick = (e) => {
           e.stopPropagation();
           this.startCourtPrep(btn.dataset.reportId);
+        };
+      });
+
+      // Bind delete buttons
+      list.querySelectorAll('.delete-report-btn').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          this.deleteReportFromDashboard(btn.dataset.reportId);
         };
       });
     } catch (error) {
@@ -507,6 +559,12 @@ const App = {
                 <path d="M9 12l2 2 4-4"/>
               </svg>
             </button>` : ''}
+            ${r.status === 'draft' ? `<button class="delete-report-btn" data-report-id="${escapeHtml(r.id)}" title="Delete draft">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </button>` : ''}
             <span class="status-badge ${escapeHtml(r.status)}">${escapeHtml(r.status)}</span>
           </div>
         </div>
@@ -523,6 +581,7 @@ const App = {
       list.querySelectorAll('.report-item').forEach(item => {
         item.onclick = (e) => {
           if (e.target.closest('.court-prep-icon-btn')) return;
+          if (e.target.closest('.delete-report-btn')) return;
           this.openReport(item.dataset.id);
         };
       });
@@ -531,6 +590,13 @@ const App = {
         btn.onclick = (e) => {
           e.stopPropagation();
           this.startCourtPrep(btn.dataset.reportId);
+        };
+      });
+
+      list.querySelectorAll('.delete-report-btn').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          this.deleteReportFromDashboard(btn.dataset.reportId);
         };
       });
     } catch (error) {
@@ -643,6 +709,8 @@ const App = {
     document.getElementById('legal-content').innerHTML = '<p class="text-muted"><strong>Case Law</strong> - Get case citations and policy recommendations<br><strong>Elements</strong> - Verify your report meets statutory elements</p>';
     document.getElementById('charges-section').classList.add('hidden');
     this.suggestedCharges = [];
+    // Show delete button only for drafts
+    document.getElementById('delete-report-btn').classList.toggle('hidden', report.status !== 'draft');
     this.showView('editor');
   },
 
@@ -1067,6 +1135,31 @@ const App = {
     }
   },
 
+  async deleteReportFromDashboard(reportId) {
+    if (!confirm('Delete this draft? This cannot be undone.')) return;
+
+    try {
+      await API.deleteReport(reportId);
+      await this.loadReports();
+    } catch (error) {
+      alert('Failed to delete report: ' + error.message);
+    }
+  },
+
+  async deleteCurrentReport() {
+    if (!this.currentReport) return;
+    if (!confirm('Delete this draft? This cannot be undone.')) return;
+
+    try {
+      await API.deleteReport(this.currentReport.id);
+      this.currentReport = null;
+      this.showView('dashboard');
+      this.loadReports();
+    } catch (error) {
+      alert('Failed to delete report: ' + error.message);
+    }
+  },
+
   async deleteExample(id) {
     if (!confirm('Delete this example?')) return;
 
@@ -1080,7 +1173,50 @@ const App = {
 
   // --- Court Prep Methods ---
 
+  async quickCourtPrepStart() {
+    if (!this.hasPro) {
+      this.showProUpgradeModal();
+      return;
+    }
+
+    const content = document.getElementById('quick-cp-content').value.trim();
+    const reportType = document.getElementById('quick-cp-type').value;
+
+    if (!content) {
+      alert('Please paste your report narrative.');
+      return;
+    }
+
+    const btn = document.getElementById('quick-cp-start');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    try {
+      // Create a report with the pasted content
+      const report = await API.createReport(reportType);
+      await API.updateReport(report.id, { final_content: content });
+
+      // Reset the form
+      document.getElementById('quick-court-prep').classList.remove('expanded');
+      document.getElementById('quick-court-prep-form').classList.add('hidden');
+      document.getElementById('quick-cp-content').value = '';
+
+      // Launch court prep
+      this.currentReport = { ...report, final_content: content };
+      await this.startCourtPrep(report.id);
+    } catch (error) {
+      alert('Failed to start court prep: ' + error.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Start Cross-Examination';
+    }
+  },
+
   async startCourtPrep(reportId) {
+    if (!this.hasPro) {
+      this.showProUpgradeModal();
+      return;
+    }
     // Prevent double-click
     if (this._courtPrepStarting) return;
     this._courtPrepStarting = true;

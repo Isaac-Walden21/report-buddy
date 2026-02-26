@@ -32,11 +32,31 @@ try {
     console.log('Migration: Added firebase_uid column to users table');
   }
 
-  // Make password_hash optional for existing tables
-  const hasPasswordHash = columns.some(col => col.name === 'password_hash');
-  if (hasPasswordHash) {
-    // SQLite doesn't support altering column constraints, but new inserts can have NULL
-    console.log('Migration: password_hash column exists, Firebase users will have NULL password');
+  // Migration: Make password_hash nullable for Firebase auth users
+  // SQLite can't ALTER COLUMN, so we must recreate the table
+  const passwordCol = columns.find(col => col.name === 'password_hash');
+  if (passwordCol && passwordCol.notnull === 1) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE users_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        firebase_uid TEXT UNIQUE,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT,
+        name TEXT NOT NULL,
+        jurisdiction_state TEXT,
+        jurisdiction_county TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO users_new SELECT id, firebase_uid, email, password_hash, name,
+        jurisdiction_state, jurisdiction_county, created_at, updated_at FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_new RENAME TO users;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_firebase_uid ON users(firebase_uid);
+    `);
+    db.pragma('foreign_keys = ON');
+    console.log('Migration: Made password_hash nullable for Firebase auth');
   }
 } catch (err) {
   console.error('Migration error:', err);

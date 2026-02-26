@@ -1,6 +1,6 @@
 const express = require('express');
 const admin = require('../services/firebase');
-const { getUser, createUser, updateUser, updateSubscription, hasSubscriptionAccess } = require('../db/firestore');
+const { getUser, createUser, updateUser, updateSubscription, hasSubscriptionAccess, hasProAccess } = require('../db/firestore');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -48,8 +48,10 @@ router.post('/verify', async (req, res) => {
         email: user.email,
         name: user.name,
         subscription_status: user.subscription_status,
+        subscription_tier: user.subscription_tier || null,
         trial_ends_at: user.trial_ends_at,
-        has_subscription: hasSubscriptionAccess(user)
+        has_subscription: hasSubscriptionAccess(user),
+        has_pro: hasProAccess(user)
       }
     });
   } catch (error) {

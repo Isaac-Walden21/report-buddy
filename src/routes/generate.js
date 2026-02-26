@@ -15,6 +15,9 @@ router.post('/check', async (req, res) => {
     if (!transcript || !report_type) {
       return res.status(400).json({ error: 'transcript and report_type required' });
     }
+    if (transcript.length > 50000) {
+      return res.status(400).json({ error: 'Transcript must be 50,000 characters or less' });
+    }
 
     const result = await generateFollowUpQuestions(report_type, transcript);
     res.json(result);
@@ -32,6 +35,9 @@ router.post('/report', async (req, res) => {
 
     if (!report_id || !transcript) {
       return res.status(400).json({ error: 'report_id and transcript required' });
+    }
+    if (transcript.length > 50000) {
+      return res.status(400).json({ error: 'Transcript must be 50,000 characters or less' });
     }
 
     // Get report
@@ -74,6 +80,9 @@ router.post('/refine', async (req, res) => {
     if (!report_id || !refinement) {
       return res.status(400).json({ error: 'report_id and refinement required' });
     }
+    if (refinement.length > 10000) {
+      return res.status(400).json({ error: 'Refinement must be 10,000 characters or less' });
+    }
 
     const report = db.prepare(
       'SELECT * FROM reports WHERE id = ? AND user_id = ?'
@@ -92,7 +101,7 @@ router.post('/refine', async (req, res) => {
 
     // Update report
     db.prepare(
-      'UPDATE reports SET generated_content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      'UPDATE reports SET generated_content = ?, final_content = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
     ).run(refinedContent, report_id);
 
     res.json({

@@ -12,7 +12,9 @@ const PORT = process.env.PORT || 3000;
 // Allowed origins for CORS
 const allowedOrigins = [
   'https://report-buddy-55269.web.app',
-  'https://report-buddy-55269.firebaseapp.com'
+  'https://report-buddy-55269.firebaseapp.com',
+  'https://getreportbuddy.com',
+  'https://www.getreportbuddy.com'
 ];
 if (process.env.NODE_ENV !== 'production') {
   allowedOrigins.push(`http://localhost:${PORT}`);

@@ -155,7 +155,12 @@ Err on the side of "ready": true. Maximum 2 questions, only if truly necessary.`
     response_format: { type: 'json_object' }
   });
 
-  return JSON.parse(response.choices[0].message.content);
+  try {
+    return JSON.parse(response.choices[0].message.content);
+  } catch (parseError) {
+    console.error('Failed to parse AI response:', response.choices[0].message.content?.substring(0, 200));
+    throw new Error('AI returned an invalid response. Please try again.');
+  }
 }
 
 // Refine report based on user feedback
@@ -256,7 +261,12 @@ Focus on the primary charges, not lesser includeds.`
     response_format: { type: 'json_object' }
   });
 
-  return JSON.parse(response.choices[0].message.content);
+  try {
+    return JSON.parse(response.choices[0].message.content);
+  } catch (parseError) {
+    console.error('Failed to parse AI response:', response.choices[0].message.content?.substring(0, 200));
+    throw new Error('AI returned an invalid response. Please try again.');
+  }
 }
 
 // Check if report meets the elements of specified charges
@@ -336,7 +346,12 @@ Be specific about what evidence supports each element and what could strengthen 
     response_format: { type: 'json_object' }
   });
 
-  return JSON.parse(response.choices[0].message.content);
+  try {
+    return JSON.parse(response.choices[0].message.content);
+  } catch (parseError) {
+    console.error('Failed to parse AI response:', response.choices[0].message.content?.substring(0, 200));
+    throw new Error('AI returned an invalid response. Please try again.');
+  }
 }
 
 module.exports = {

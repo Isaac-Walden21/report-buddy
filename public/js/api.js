@@ -62,6 +62,12 @@ const API = {
         }
         throw new Error('Subscription required to use AI features');
       }
+      if (response.status === 403 && data.code === 'PRO_REQUIRED') {
+        if (typeof App !== 'undefined' && App.showProUpgradeModal) {
+          App.showProUpgradeModal();
+        }
+        throw new Error('Pro subscription required for Court Prep');
+      }
       throw new Error(data.error || 'Request failed');
     }
 
@@ -269,8 +275,11 @@ const API = {
   },
 
   // Stripe / Subscription
-  async createCheckoutSession() {
-    return this.request('/stripe/create-checkout-session', { method: 'POST' });
+  async createCheckoutSession(tier = 'standard') {
+    return this.request('/stripe/create-checkout-session', {
+      method: 'POST',
+      body: JSON.stringify({ tier })
+    });
   },
 
   async openCustomerPortal() {

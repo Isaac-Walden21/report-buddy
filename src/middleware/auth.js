@@ -1,6 +1,6 @@
 // src/middleware/auth.js
 const admin = require('../services/firebase');
-const db = require('../db/database');
+const { getOrCreateUser } = require('../services/users');
 
 async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -15,29 +15,10 @@ async function authenticateToken(req, res, next) {
     const decodedToken = await admin.auth().verifyIdToken(token);
 
     // Get or create user in local database
-    let user = db.prepare('SELECT id, firebase_uid, email, name FROM users WHERE firebase_uid = ?').get(decodedToken.uid);
+    const user = getOrCreateUser(decodedToken);
 
     if (!user) {
-      // User doesn't exist locally, create them
-      const result = db.prepare(
-        'INSERT INTO users (firebase_uid, email, name) VALUES (?, ?, ?)'
-      ).run(decodedToken.uid, decodedToken.email, decodedToken.name || decodedToken.email.split('@')[0]);
-
-      // Create default style profiles for new user
-      const reportTypes = ['incident', 'arrest', 'supplemental'];
-      const insertProfile = db.prepare(
-        'INSERT INTO style_profiles (user_id, report_type) VALUES (?, ?)'
-      );
-      for (const type of reportTypes) {
-        insertProfile.run(result.lastInsertRowid, type);
-      }
-
-      user = {
-        id: result.lastInsertRowid,
-        firebase_uid: decodedToken.uid,
-        email: decodedToken.email,
-        name: decodedToken.name || decodedToken.email.split('@')[0]
-      };
+      return res.status(400).json({ error: 'Email is required for registration' });
     }
 
     // Attach user info to request

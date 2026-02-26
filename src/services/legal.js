@@ -74,7 +74,12 @@ Respond in JSON format:
     response_format: { type: 'json_object' }
   });
 
-  return JSON.parse(response.choices[0].message.content);
+  try {
+    return JSON.parse(response.choices[0].message.content);
+  } catch (parseError) {
+    console.error('Failed to parse AI response:', response.choices[0].message.content?.substring(0, 200));
+    throw new Error('AI returned an invalid response. Please try again.');
+  }
 }
 
 // Save legal references to database
