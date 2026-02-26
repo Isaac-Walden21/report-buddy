@@ -9,6 +9,8 @@ const router = express.Router();
 // to bypass auth and use raw body parsing for Stripe signature verification.
 router.use(authenticateToken);
 
+const APP_URL = process.env.APP_URL || 'https://getreportbuddy.com';
+
 // Price ID mapping
 const PRICE_IDS = {
   standard: process.env.STRIPE_PRICE_ID,
@@ -58,8 +60,8 @@ router.post('/create-checkout-session', async (req, res) => {
         price: priceId,
         quantity: 1
       }],
-      success_url: 'https://getreportbuddy.com/?subscription=success',
-      cancel_url: 'https://getreportbuddy.com/?subscription=canceled'
+      success_url: `${APP_URL}/?subscription=success`,
+      cancel_url: `${APP_URL}/?subscription=canceled`
     });
 
     res.json({ url: session.url });
@@ -80,7 +82,7 @@ router.post('/create-portal-session', async (req, res) => {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: user.stripe_customer_id,
-      return_url: 'https://getreportbuddy.com/'
+      return_url: `${APP_URL}/`
     });
 
     res.json({ url: session.url });
@@ -152,6 +154,7 @@ async function handleWebhook(req, res) {
           await updateSubscription(user.id, {
             subscription_status: 'canceled',
             subscription_id: null,
+            subscription_tier: null,
             subscription_current_period_end: null
           });
         }
